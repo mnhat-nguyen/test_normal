@@ -1,0 +1,79 @@
+"""
+sleep_injector.py
+-----------------
+Simulates resource contention by injecting sleep into training iterations.
+Both train.py (with algorithm) and train_baseline.py use the same class
+with the same seed so both runs face identical straggler conditions and
+the comparison is fair.
+"""
+
+import time
+import random
+from collections import deque
+
+
+class SleepInjector:
+    """
+    Mimics multi-tenant resource contention (paper Section V-B).
+
+    State machine per worker:
+      - Every `check_interval` batches, re-roll the sleep state.
+      - If currently NOT sleeping: enter sleep with probability `prob_on`.
+      - If currently sleeping:     leave  sleep with probability `prob_off`.
+      - While sleeping: sleep for `duration_ratio` × recent average iter time.
+    """
+
+    def __init__(
+        self,
+        prob_on:         float = 0.20,
+        prob_off:        float = 0.20,
+        check_interval:  int   = 10,
+        duration_ratio:  float = 0.80,
+        seed:            int   = 42,
+    ) -> None:
+        self.prob_on        = prob_on
+        self.prob_off       = prob_off
+        self.interval       = check_interval
+        self.ratio          = duration_ratio
+        self.rng            = random.Random(seed)
+
+        self.sleeping       = False
+        self._recent: deque = deque(maxlen=20)   # recent iter times for avg
+
+    # ------------------------------------------------------------------
+    def maybe_sleep(self, batch_idx: int, last_iter_ms: float) -> bool:
+        """
+        Call this BEFORE the timed training step.
+
+        Parameters
+        ----------
+        batch_idx    : current batch index within the epoch
+        last_iter_ms : measured X_t of the previous batch (ms)
+
+        Returns
+        -------
+        sleeping : bool  — whether a sleep was injected this call
+        """
+        if last_iter_ms > 0:
+            self._recent.append(last_iter_ms)
+
+        # Re-roll sleep state every `interval` batches
+        if batch_idx % self.interval == 0:
+            if self.sleeping:
+                if self.rng.random() < self.prob_off:
+                    self.sleeping = False
+            else:
+                if self.rng.random() < self.prob_on:
+                    self.sleeping = True
+
+        if self.sleeping and self._recent:
+            avg_ms    = sum(self._recent) / len(self._recent)
+            sleep_sec = (avg_ms * self.ratio) / 1000.0
+            time.sleep(sleep_sec)
+            return True
+
+        return False
+
+    @property
+    def is_sleeping(self) -> bool:
+        return self.sleeping
