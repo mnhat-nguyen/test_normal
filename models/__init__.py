@@ -21,13 +21,13 @@ Usage
 """
 
 import torch.nn as nn
-from .resnet       import get_resnet,        _REGISTRY as _R_RESNET
-from .vgg          import get_vgg,           _REGISTRY as _R_VGG
-from .densenet     import get_densenet,      _REGISTRY as _R_DENSENET
-from .efficientnet import get_efficientnet,  _REGISTRY as _R_EFFICIENTNET
-from .mobilenet    import get_mobilenet,     _REGISTRY as _R_MOBILENET
+from models.resnet       import get_resnet,        _REGISTRY as _R_RESNET
+from models.vgg          import get_vgg,           _REGISTRY as _R_VGG
+from models.densenet     import get_densenet,      _REGISTRY as _R_DENSENET
+from models.efficientnet import get_efficientnet,  _REGISTRY as _R_EFFICIENTNET
+from models.mobilenet    import get_mobilenet,     _REGISTRY as _R_MOBILENET
 
-# flat name -> builder function
+# flat name -> builder function  
 _BUILDERS = {}
 for _n in _R_RESNET:       _BUILDERS[_n] = get_resnet
 for _n in _R_VGG:          _BUILDERS[_n] = get_vgg
