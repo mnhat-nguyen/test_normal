@@ -1,0 +1,8 @@
+pyddp-env/
+results/
+logs/
+logs_baseline/
+checkpoints/
+checkpoints_baseline/
+data/
+__pycache__/
