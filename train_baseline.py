@@ -112,8 +112,8 @@ class Trainer:
 # ---------------------------------------------------------------------------
 
 def load_train_objs():
-    train_set = MyTrainDataset(2048)
-    model     = torch.nn.Linear(20, 1)
+    train_set = MyTrainDataset(2048, input_dim=20, num_class=2)
+    model     = torch.nn.Linear(20, 2)   # output dim must match num_class
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
     return train_set, model, optimizer
 

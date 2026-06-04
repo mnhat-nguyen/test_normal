@@ -25,8 +25,8 @@ class MyTrainDataset(Dataset):
         self.input_dim = input_dim
         self.num_class = num_class
 
-        # Generate everything up front so workers don't re-generate per epoch
         self.data   = torch.randn(size, input_dim)
+        # labels in [0, num_class - 1]
         self.labels = torch.randint(0, num_class, (size,))
 
     def __len__(self) -> int:
