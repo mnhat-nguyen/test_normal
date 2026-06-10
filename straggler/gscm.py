@@ -1,6 +1,4 @@
 """
-straggler/gscm.py
-=================
 Gradient Scale Consistency Mechanism (GSCM)
 ============================================
 Problem
@@ -42,7 +40,7 @@ class GSCM:
     def __init__(self, device: torch.device) -> None:
         self.device = device
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────────────────────────────────
     def sync_scale(
         self,
         amp_active: bool,
@@ -82,7 +80,7 @@ class GSCM:
 
         return global_scale
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────────────────────────────────
     @staticmethod
     def scale_loss(loss: torch.Tensor, global_scale: float) -> torch.Tensor:
         """
@@ -93,7 +91,7 @@ class GSCM:
             return loss
         return loss * global_scale
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────────────────────────────────
     @staticmethod
     def unscale_gradients(
         model: torch.nn.Module,

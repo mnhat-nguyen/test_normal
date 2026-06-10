@@ -1,7 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
 pyddp-env/
+data/cifar*
+checkpoints/
 results/
 logs/
-logs_baseline/
-checkpoints/
-checkpoints_baseline/
-__pycache__/
+launch_logs_*/
+*.pt
+*.pth

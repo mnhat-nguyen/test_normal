@@ -1,57 +1,72 @@
+"""
+config.py – all hyperparameters in one place.
+
+Every field can be overridden by an environment variable of the same name
+(upper-cased), so you can tune runs without editing this file:
+
+    MASTER_ADDR=10.0.0.1 EPOCHS=50 bash scripts/run.sh 0
+"""
+import os
 from dataclasses import dataclass, field
 from typing import Optional
+
+
+def _env(key: str, default):
+    """Return env var cast to the same type as *default*, or *default*."""
+    val = os.environ.get(key.upper())
+    if val is None:
+        return default
+    try:
+        return type(default)(val)
+    except (ValueError, TypeError):
+        return default
 
 
 @dataclass
 class TrainConfig:
     # ── Distributed ──────────────────────────────────────────────────────────
-    backend:      str = 'nccl'
-    master_addr:  str = '192.168.0.11'  # node-0 IP
-    master_port:  str = '20015'
+    # backend 'nccl' uses NCCL Ring AllReduce for gradient synchronisation.
+    # Each of the 4 nodes holds 1 GPU; WORLD_SIZE=4, ring has 4 participants.
+    backend:      str = field(default_factory=lambda: _env('BACKEND',     'nccl'))
+    master_addr:  str = field(default_factory=lambda: _env('MASTER_ADDR', '192.168.0.1'))
+    master_port:  str = field(default_factory=lambda: _env('MASTER_PORT', '29500'))
+    # seconds to wait for all workers during init / barrier; raise if cluster is slow
+    dist_timeout: int = field(default_factory=lambda: _env('DIST_TIMEOUT', 600))
 
     # ── Model / Dataset ───────────────────────────────────────────────────────
-    # ResNet      : resnet18 | resnet34 | resnet50 | resnet101 | resnet152
-    # VGG         : vgg11 | vgg13 | vgg16 | vgg19
-    # DenseNet    : densenet121 | densenet161 | densenet169 | densenet201
-    # EfficientNet: efficientnet_b0 | efficientnet_b1 | efficientnet_b2 | efficientnet_b3
-    # MobileNet   : mobilenet_v2 | mobilenet_v3_small | mobilenet_v3_large
-    model_name:   str = 'resnet50'
-    dataset:      str = 'cifar10'       # cifar10 | cifar100
-    data_root:    str = './data'
-    num_workers:  int = 4
+    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet50'))
+    dataset:      str = field(default_factory=lambda: _env('DATASET',    'cifar10'))
+    data_root:    str = field(default_factory=lambda: _env('DATA_ROOT',  './data'))
+    num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
 
     # ── Training ──────────────────────────────────────────────────────────────
-    epochs:       int   = 100
-    batch_size:   int   = 128           # per-worker batch size
-    lr:           float = 0.1
-    momentum:     float = 0.9
-    weight_decay: float = 5e-4
+    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       100))
+    batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   128))
+    lr:           float = field(default_factory=lambda: _env('LR',           0.1))
+    momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
+    weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
 
     # ── LR Schedule ───────────────────────────────────────────────────────────
-    scheduler:    str   = 'cosine'      # cosine | multistep
-    milestones:   tuple = (100, 150)    # used only when scheduler='multistep'
-    gamma:        float = 0.1
+    scheduler:    str   = field(default_factory=lambda: _env('SCHEDULER', 'cosine'))
+    milestones:   tuple = (100, 150)
+    gamma:        float = field(default_factory=lambda: _env('GAMMA', 0.1))
 
     # ── Straggler Detection ───────────────────────────────────────────────────
-    #   X_t = wall-clock time (ms) for one full batch:
-    #         forward + backward + DDP allreduce + optimizer step
-    window_size:  int   = 20            # N      : sliding window max size
-    n_min:        int   = 10            # N_min  : cold-start threshold
-    k:            float = 3.0           # MAD scaling factor (shared for UCL / LCL)
-    ewma_lambda:  float = 0.3           # lambda : EWMA smoothing (lower -> smoother)
+    window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 20))
+    n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
+    k:            float = field(default_factory=lambda: _env('K',           3.0))
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.3))
 
-    # ── Sleep injection (straggler simulation) ────────────────────────────────
-    # Both baseline and algorithm runs use the same settings so the
-    # comparison is fair under identical straggler conditions.
-    inject_sleep:         bool  = True
-    sleep_prob_on:        float = 0.20  # probability of entering sleep state
-    sleep_prob_off:       float = 0.20  # probability of leaving  sleep state
-    sleep_check_interval: int   = 10    # batches between re-rolls
-    sleep_duration_ratio: float = 1.5   # sleep = ratio x recent avg iter time
-    sleep_seed:           int   = 42    # fix seed so both runs see same pattern
+    # ── Sleep injection ───────────────────────────────────────────────────────
+    inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
+    sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.20))
+    sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.20))
+    sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 1.5))
+    sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
-    # ── Logging / Checkpointing / Results ─────────────────────────────────────
-    log_interval:     int           = 20
-    checkpoint_dir:   str           = './checkpoints'
-    results_dir:      str           = './results'
+    # ── Logging / Checkpointing ───────────────────────────────────────────────
+    log_interval:     int           = field(default_factory=lambda: _env('LOG_INTERVAL', 20))
+    checkpoint_dir:   str           = field(default_factory=lambda: _env('CHECKPOINT_DIR', './checkpoints'))
+    results_dir:      str           = field(default_factory=lambda: _env('RESULTS_DIR',    './results'))
     resume:           Optional[str] = None

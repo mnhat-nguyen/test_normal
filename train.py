@@ -1,17 +1,25 @@
 """
-train.py  –  DDP training with EWMA-MAD straggler mitigation + GSCM
-=====================================================================
+train.py  –  entry point for both single-process testing and torchrun
+======================================================================
 Single-process test (1 machine, 1 GPU):
     python train.py
 
-4-node distributed (run on EACH of the 4 machines):
+4-node distributed (run on EACH of the 4 machines via torchrun):
     torchrun \\
         --nproc_per_node=1 \\
         --nnodes=4 \\
         --node_rank=<0|1|2|3> \\
         --master_addr=<IP of node-0> \\
         --master_port=29500 \\
+        --rdzv_backend=c10d \\
+        --rdzv_endpoint=<IP of node-0>:29500 \\
         train.py
+
+Gradient synchronisation:
+    PyTorch DDP uses NCCL backend, which implements Ring AllReduce
+    for gradient averaging. Each of the 4 nodes holds 1 GPU, so
+    WORLD_SIZE=4. The ring passes gradient chunks around 4 nodes
+    in 2*(N-1) = 6 steps total (scatter-reduce + allgather).
 
 torchrun sets RANK, LOCAL_RANK, WORLD_SIZE automatically.
 When run directly with python, those env vars are absent and
@@ -19,9 +27,9 @@ default to 0 / 0 / 1, so all distributed code is bypassed.
 """
 
 import os
+import datetime
 import time
 import json
-import datetime
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -31,7 +39,8 @@ from torch.amp import GradScaler, autocast
 from config          import TrainConfig
 from models          import get_model
 from data            import get_dataloaders
-from straggler       import StraglerDetector, GSCM, DetectionEvaluator
+from straggler       import StraglerDetector, GSCM
+from straggler.evaluator import DetectionEvaluator
 from sleep_injector  import SleepInjector
 from utils           import get_logger
 
@@ -41,20 +50,49 @@ from utils           import get_logger
 # ──────────────────────────────────────────────────────────────────────────────
 
 def setup(rank: int, world_size: int, config: TrainConfig) -> None:
-    torch.cuda.set_device(0)
+    """
+    Initialise the NCCL process group for Ring AllReduce.
+
+    torchrun already populates MASTER_ADDR, MASTER_PORT, RANK,
+    LOCAL_RANK, and WORLD_SIZE in the environment before this runs.
+    We use init_method='env://' so PyTorch reads those variables
+    directly; no manual os.environ writes are needed.
+
+    NCCL tuning notes
+    -----------------
+    NCCL_SOCKET_IFNAME  – restrict NCCL to a specific NIC (e.g. eth0).
+                          Set in environment before launching if needed:
+                              export NCCL_SOCKET_IFNAME=eth0
+    NCCL_IB_DISABLE     – set to 1 if no InfiniBand to avoid IB probing.
+    NCCL_ASYNC_ERROR_HANDLING – set to 1 for async error propagation.
+    """
+    torch.cuda.set_device(0)   # 1 GPU per node → always cuda:0
+
     if world_size > 1:
+        # Let environment variables provided by torchrun drive the rendezvous.
+        # Fallback values are only used when running without torchrun.
         os.environ.setdefault('MASTER_ADDR', config.master_addr)
         os.environ.setdefault('MASTER_PORT', config.master_port)
+
+        # Surface async NCCL errors immediately instead of hanging.
+        os.environ.setdefault('NCCL_ASYNC_ERROR_HANDLING', '1')
+
         dist.init_process_group(
-            backend=config.backend,
-            rank=rank,
-            world_size=world_size,
-            timeout=datetime.timedelta(minutes=120),
+            backend    = config.backend,   # 'nccl' → Ring AllReduce
+            init_method= 'env://',
+            rank       = rank,
+            world_size = world_size,
+            timeout    = datetime.timedelta(seconds=config.dist_timeout),
         )
+        # Warm up the NCCL communicator with a tiny all-reduce so the
+        # first real backward pass does not pay the initialisation cost.
+        _warmup_tensor = torch.zeros(1, device='cuda:0')
+        dist.all_reduce(_warmup_tensor, op=dist.ReduceOp.SUM)
+        dist.barrier()
 
 
 def cleanup(world_size: int) -> None:
-    if world_size > 1:
+    if world_size > 1 and dist.is_initialized():
         dist.destroy_process_group()
 
 
@@ -77,7 +115,7 @@ def train_step(
     Execute one full batch iteration and return (loss_value, outputs, X_t).
 
     X_t is the wall-clock time (ms) for the complete step:
-        forward  +  backward (incl. DDP allreduce)  +  optimizer step
+        forward  +  backward (incl. DDP ring allreduce)  +  optimizer step
 
     The GSCM scale sync happens BEFORE the timer starts so that
     communication overhead does not inflate X_t measurements.
@@ -91,12 +129,9 @@ def train_step(
     optimizer.zero_grad()
 
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
-    # All workers call dist.all_reduce here; Normal workers learn the AMP
-    # scale so they can match it.  This is intentionally outside the timer.
     global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
 
     # ── Start timer ───────────────────────────────────────────────────────────
-    # X_t = time for forward + backward (allreduce) + optimizer step
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
@@ -105,26 +140,17 @@ def train_step(
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
-        # GradScaler scales loss by global_scale internally (we aligned it
-        # in sync_scale), so backward produces grads * global_scale
         scaler.scale(loss).backward()
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-        # GSCM: manually match AMP workers' gradient magnitude
-        # If no worker is in AMP mode global_scale == 1.0  →  no-op
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-        # ↑ DDP allreduce fires inside .backward() via registered hooks.
-        # At this point all workers' gradients are averaged AND still
-        # carry the factor global_scale.
 
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
-        # scaler.unscale_() divides by global_scale (same value we aligned to)
         scaler.unscale_(optimizer)
     else:
-        # Normal workers remove the manual scale factor
         GSCM.unscale_gradients(model, global_scale)
 
     # ── Optimizer step ────────────────────────────────────────────────────────
@@ -153,7 +179,7 @@ def train_epoch(
     scaler:    GradScaler,
     detector:  StraglerDetector,
     gscm:      GSCM,
-    injector,                       # SleepInjector | None
+    injector,
     evaluator: DetectionEvaluator,
     device:    torch.device,
     epoch:     int,
@@ -169,11 +195,9 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        # Inject artificial sleep BEFORE the timed step
         if injector is not None:
             injector.maybe_sleep(i, last_x_t)
 
-        # Read current mode from detector (set by previous iteration's update)
         amp_active = detector.amp_flag
 
         loss_val, outputs, x_t = train_step(
@@ -183,9 +207,6 @@ def train_epoch(
         )
         last_x_t = x_t
 
-        # ── Detector update ───────────────────────────────────────────────────
-        # Skip first and last batch of each epoch (as in the paper) because
-        # those timings include data-loading warm-up / epoch-boundary effects.
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:
             detector.update(x_t)
@@ -195,13 +216,11 @@ def train_epoch(
                     amp_active=detector.amp_flag,
                 )
 
-        # ── Metrics ───────────────────────────────────────────────────────────
         total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        # ── Logging ───────────────────────────────────────────────────────────
         if i % config.log_interval == 0:
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
@@ -254,7 +273,7 @@ def save_checkpoint(state: dict, path: str) -> None:
     torch.save(state, path)
 
 
-def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_size):
+def load_checkpoint(path: str, model, optimizer, scheduler, detector, scaler, world_size: int):
     ckpt = torch.load(path, map_location='cpu')
     model_obj = model.module if world_size > 1 else model
     model_obj.load_state_dict(ckpt['model'])
@@ -272,28 +291,31 @@ def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_s
 def main() -> None:
     config     = TrainConfig()
 
+    # torchrun injects these; fall back to single-process defaults
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
     world_size = int(os.environ.get('WORLD_SIZE', 1))
 
     setup(rank, world_size, config)
-    device = torch.device('cuda:0')
+    device = torch.device('cuda:0')   # 1 GPU per node → always cuda:0
     logger = get_logger(rank)
 
-    logger.info(f"Worker {rank}/{world_size} ready  |  device={device}")
+    logger.info(
+        f"Worker {rank}/{world_size} ready | device={device} | "
+        f"backend={config.backend} (Ring AllReduce) | "
+        f"master={config.master_addr}:{config.master_port}"
+    )
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model = get_model(config.model_name, config.dataset).to(device)
     if world_size > 1:
-        model = DDP(model, device_ids=[0])
+        # find_unused_parameters=False is faster; set True only if needed
+        model = DDP(model, device_ids=[0], find_unused_parameters=False)
     logger.info(f"Model : {config.model_name}  dataset : {config.dataset}")
 
     # ── Data ──────────────────────────────────────────────────────────────────
     train_loader, test_loader = get_dataloaders(config, rank, world_size)
-    logger.info(
-        f"Train batches: {len(train_loader)}  "
-        f"Test batches: {len(test_loader)}"
-    )
+    logger.info(f"Train batches: {len(train_loader)}  Test batches: {len(test_loader)}")
 
     # ── Optimiser / scheduler ─────────────────────────────────────────────────
     criterion = nn.CrossEntropyLoss()
@@ -313,7 +335,6 @@ def main() -> None:
             optimizer, milestones=list(config.milestones), gamma=config.gamma
         )
 
-    # ── AMP scaler ────────────────────────────────────────────────────────────
     scaler = GradScaler('cuda')
 
     # ── Straggler detection ───────────────────────────────────────────────────
@@ -326,7 +347,7 @@ def main() -> None:
     gscm      = GSCM(device)
     evaluator = DetectionEvaluator()
 
-    # ── Sleep injector (straggler simulation) ─────────────────────────────────
+    # ── Sleep injector ────────────────────────────────────────────────────────
     injector = SleepInjector(
         prob_on        = config.sleep_prob_on,
         prob_off       = config.sleep_prob_off,
@@ -356,8 +377,7 @@ def main() -> None:
         epoch_t0 = time.perf_counter()
         train_loss, train_acc = train_epoch(
             model, train_loader, optimizer, criterion,
-            scaler, detector, gscm, injector, evaluator,
-            device, epoch, config, logger,
+            scaler, detector, gscm, injector, evaluator, device, epoch, config, logger,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 

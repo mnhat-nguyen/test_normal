@@ -40,7 +40,7 @@ class SleepInjector:
         self.sleeping       = False
         self._recent: deque = deque(maxlen=20)   # recent iter times for avg
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────────────────────────────────
     def maybe_sleep(self, batch_idx: int, last_iter_ms: float) -> bool:
         """
         Call this BEFORE the timed training step.

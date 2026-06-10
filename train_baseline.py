@@ -16,7 +16,6 @@ Run:
 import os
 import time
 import json
-import datetime
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -30,7 +29,7 @@ from utils           import get_logger
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Distributed setup / teardown
+# Distributed setup / teardown (same guards as train.py)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def setup(rank: int, world_size: int, config: TrainConfig) -> None:
@@ -38,12 +37,8 @@ def setup(rank: int, world_size: int, config: TrainConfig) -> None:
     if world_size > 1:
         os.environ.setdefault('MASTER_ADDR', config.master_addr)
         os.environ.setdefault('MASTER_PORT', config.master_port)
-        dist.init_process_group(
-            backend=config.backend,
-            rank=rank,
-            world_size=world_size,
-            timeout=datetime.timedelta(minutes=120),
-        )
+        dist.init_process_group(backend=config.backend,
+                                rank=rank, world_size=world_size)
 
 
 def cleanup(world_size: int) -> None:
@@ -165,10 +160,8 @@ def main() -> None:
     logger = get_logger(rank, log_dir='./logs_baseline')
 
     logger.info(f"[BASELINE] Worker {rank}/{world_size} | device={device}")
-    logger.info(
-        f"Model: {config.model_name}  Dataset: {config.dataset}  "
-        f"Sleep injection: {config.inject_sleep}"
-    )
+    logger.info(f"Model: {config.model_name}  Dataset: {config.dataset}  "
+                f"Sleep injection: {config.inject_sleep}")
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model = get_model(config.model_name, config.dataset).to(device)
@@ -180,21 +173,17 @@ def main() -> None:
 
     # ── Optimiser / scheduler ─────────────────────────────────────────────────
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=config.lr,
-        momentum=config.momentum,
-        weight_decay=config.weight_decay,
-    )
+    optimizer = torch.optim.SGD(model.parameters(),
+                                 lr=config.lr,
+                                 momentum=config.momentum,
+                                 weight_decay=config.weight_decay)
 
     if config.scheduler == 'cosine':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config.epochs
-        )
+            optimizer, T_max=config.epochs)
     else:
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=list(config.milestones), gamma=config.gamma
-        )
+            optimizer, milestones=list(config.milestones), gamma=config.gamma)
 
     # ── Sleep injector ────────────────────────────────────────────────────────
     # Use the SAME seed as train.py so both face identical straggler patterns
@@ -243,6 +232,7 @@ def main() -> None:
         )
 
         if rank == 0:
+            # Save metrics after every epoch
             results_path = os.path.join(config.results_dir, 'baseline_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
@@ -254,9 +244,8 @@ def main() -> None:
                     'model':    model_state,
                     'test_acc': test_acc,
                 },
-                path=os.path.join(
-                    config.checkpoint_dir, f'baseline_epoch_{epoch:03d}.pt'
-                ),
+                path=os.path.join(config.checkpoint_dir,
+                                  f'baseline_epoch_{epoch:03d}.pt'),
             )
 
     cleanup(world_size)
