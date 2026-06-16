@@ -34,7 +34,7 @@ class TrainConfig:
     dist_timeout: int = field(default_factory=lambda: _env('DIST_TIMEOUT', 600))
 
     # ── Model / Dataset ───────────────────────────────────────────────────────
-    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet50'))
+    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet18'))
     dataset:      str = field(default_factory=lambda: _env('DATASET',    'cifar10'))
     data_root:    str = field(default_factory=lambda: _env('DATA_ROOT',  './data'))
     num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
