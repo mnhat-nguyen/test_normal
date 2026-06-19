@@ -51,20 +51,17 @@ class TrainConfig:
     milestones:   tuple = (100, 150)
     gamma:        float = field(default_factory=lambda: _env('GAMMA', 0.1))
 
-    # ── Straggler Detection ───────────────────────────────────────────────────
-    window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 20))
-    n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
-    k:            float = field(default_factory=lambda: _env('K',           3.0))
-    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.3))
+    # # ── Straggler Detection ─────────────────────────────
+    k:            float = field(default_factory=lambda: _env('K',           2.5))   # was 3.0 — triggers AMP sooner
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.5))   # was 0.3 — reacts faster
+    window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 10))    # was 20  — smaller window, adapts faster
+    n_min:        int   = field(default_factory=lambda: _env('N_MIN',       5))     # was 10  — shorter cold start
 
-    # ── Sleep injection ───────────────────────────────────────────────────────
-    inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
-    sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.20))
-    sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.20))
-    sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 1.5))
-    sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
-
+    # ── Sleep injection ──────────────────────────────────
+    sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.30))  # was 0.20
+    sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.10))  # was 0.20 — stays asleep longer
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 3.0))   # was 1.5 — much more severe
+    
     # ── Logging / Checkpointing ───────────────────────────────────────────────
     log_interval:     int           = field(default_factory=lambda: _env('LOG_INTERVAL', 20))
     checkpoint_dir:   str           = field(default_factory=lambda: _env('CHECKPOINT_DIR', './checkpoints'))
