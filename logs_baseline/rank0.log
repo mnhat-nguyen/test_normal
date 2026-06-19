@@ -2411,3 +2411,605 @@
 20:31:37 [rank 0] INFO  Epoch  99 | Batch   60/98 | Loss 0.0014 | X_t   592.1 ms
 20:31:49 [rank 0] INFO  Epoch  99 | Batch   80/98 | Loss 0.0014 | X_t   582.7 ms
 20:31:59 [rank 0] INFO  ── Epoch  99 summary  train_loss=0.0016  train_acc=99.99%  test_loss=0.2543  test_acc=94.12%  total_train_time=10104.6s
+10:29:50 [rank 0] INFO  [BASELINE] Worker 0/4 | device=cuda:0
+10:29:50 [rank 0] INFO  Model: resnet18  Dataset: cifar10  Sleep injection: True
+10:29:52 [rank 0] INFO  Epoch   0 | Batch    0/98 | Loss 2.3723 | X_t   751.2 ms
+10:30:13 [rank 0] INFO  Epoch   0 | Batch   20/98 | Loss 2.7081 | X_t   583.0 ms [SLEEP]
+10:30:42 [rank 0] INFO  Epoch   0 | Batch   40/98 | Loss 2.1989 | X_t   584.0 ms [SLEEP]
+10:31:12 [rank 0] INFO  Epoch   0 | Batch   60/98 | Loss 1.8999 | X_t   587.2 ms [SLEEP]
+10:31:31 [rank 0] INFO  Epoch   0 | Batch   80/98 | Loss 1.7754 | X_t   582.4 ms
+10:31:48 [rank 0] INFO  ── Epoch   0 summary  train_loss=2.2697  train_acc=22.66%  test_loss=1.7581  test_acc=33.24%  total_train_time=117.5s
+10:31:50 [rank 0] INFO  Epoch   1 | Batch    0/98 | Loss 1.6876 | X_t   580.9 ms [SLEEP]
+10:32:18 [rank 0] INFO  Epoch   1 | Batch   20/98 | Loss 1.5170 | X_t   588.4 ms
+10:32:40 [rank 0] INFO  Epoch   1 | Batch   40/98 | Loss 1.7314 | X_t   583.2 ms [SLEEP]
+10:33:09 [rank 0] INFO  Epoch   1 | Batch   60/98 | Loss 1.4646 | X_t   583.5 ms [SLEEP]
+10:33:38 [rank 0] INFO  Epoch   1 | Batch   80/98 | Loss 1.5739 | X_t   584.0 ms [SLEEP]
+10:33:56 [rank 0] INFO  ── Epoch   1 summary  train_loss=1.5620  train_acc=41.22%  test_loss=1.3728  test_acc=48.80%  total_train_time=245.1s
+10:33:57 [rank 0] INFO  Epoch   2 | Batch    0/98 | Loss 1.3197 | X_t   581.0 ms
+10:34:09 [rank 0] INFO  Epoch   2 | Batch   20/98 | Loss 1.3618 | X_t   582.3 ms
+10:34:30 [rank 0] INFO  Epoch   2 | Batch   40/98 | Loss 1.2710 | X_t   582.7 ms [SLEEP]
+10:34:58 [rank 0] INFO  Epoch   2 | Batch   60/98 | Loss 1.3249 | X_t   583.5 ms
+10:35:20 [rank 0] INFO  Epoch   2 | Batch   80/98 | Loss 1.3248 | X_t   583.3 ms [SLEEP]
+10:35:45 [rank 0] INFO  ── Epoch   2 summary  train_loss=1.3119  train_acc=51.78%  test_loss=1.4204  test_acc=46.92%  total_train_time=353.3s
+10:35:46 [rank 0] INFO  Epoch   3 | Batch    0/98 | Loss 1.0631 | X_t   581.2 ms [SLEEP]
+10:36:16 [rank 0] INFO  Epoch   3 | Batch   20/98 | Loss 1.1135 | X_t   585.6 ms [SLEEP]
+10:36:45 [rank 0] INFO  Epoch   3 | Batch   40/98 | Loss 1.0260 | X_t   582.9 ms [SLEEP]
+10:37:14 [rank 0] INFO  Epoch   3 | Batch   60/98 | Loss 0.8432 | X_t   583.6 ms [SLEEP]
+10:37:43 [rank 0] INFO  Epoch   3 | Batch   80/98 | Loss 1.1379 | X_t   582.9 ms [SLEEP]
+10:38:08 [rank 0] INFO  ── Epoch   3 summary  train_loss=1.0974  train_acc=60.65%  test_loss=1.0708  test_acc=62.40%  total_train_time=496.7s
+10:38:10 [rank 0] INFO  Epoch   4 | Batch    0/98 | Loss 1.0814 | X_t   580.7 ms [SLEEP]
+10:38:29 [rank 0] INFO  Epoch   4 | Batch   20/98 | Loss 0.8773 | X_t   583.5 ms
+10:38:42 [rank 0] INFO  Epoch   4 | Batch   40/98 | Loss 0.8845 | X_t   583.0 ms [SLEEP]
+10:39:10 [rank 0] INFO  Epoch   4 | Batch   60/98 | Loss 0.8971 | X_t   582.2 ms
+10:39:22 [rank 0] INFO  Epoch   4 | Batch   80/98 | Loss 0.8596 | X_t   584.1 ms
+10:39:32 [rank 0] INFO  ── Epoch   4 summary  train_loss=0.9353  train_acc=66.55%  test_loss=1.0345  test_acc=63.52%  total_train_time=580.3s
+10:39:33 [rank 0] INFO  Epoch   5 | Batch    0/98 | Loss 0.8942 | X_t   581.0 ms
+10:39:44 [rank 0] INFO  Epoch   5 | Batch   20/98 | Loss 0.8449 | X_t   584.0 ms
+10:39:56 [rank 0] INFO  Epoch   5 | Batch   40/98 | Loss 0.8820 | X_t   582.4 ms
+10:40:09 [rank 0] INFO  Epoch   5 | Batch   60/98 | Loss 0.6333 | X_t   582.8 ms [SLEEP]
+10:40:37 [rank 0] INFO  Epoch   5 | Batch   80/98 | Loss 0.6479 | X_t   584.0 ms
+10:40:47 [rank 0] INFO  ── Epoch   5 summary  train_loss=0.8086  train_acc=71.30%  test_loss=0.8010  test_acc=72.72%  total_train_time=655.2s
+10:40:48 [rank 0] INFO  Epoch   6 | Batch    0/98 | Loss 0.7700 | X_t   581.1 ms
+10:40:59 [rank 0] INFO  Epoch   6 | Batch   20/98 | Loss 0.7882 | X_t   584.9 ms
+10:41:11 [rank 0] INFO  Epoch   6 | Batch   40/98 | Loss 0.6120 | X_t   582.4 ms
+10:41:23 [rank 0] INFO  Epoch   6 | Batch   60/98 | Loss 0.6241 | X_t   582.4 ms
+10:41:44 [rank 0] INFO  Epoch   6 | Batch   80/98 | Loss 0.8495 | X_t   583.0 ms [SLEEP]
+10:42:09 [rank 0] INFO  ── Epoch   6 summary  train_loss=0.7026  train_acc=75.35%  test_loss=0.7658  test_acc=73.60%  total_train_time=737.0s
+10:42:11 [rank 0] INFO  Epoch   7 | Batch    0/98 | Loss 0.7311 | X_t   580.6 ms [SLEEP]
+10:42:40 [rank 0] INFO  Epoch   7 | Batch   20/98 | Loss 0.6560 | X_t   583.1 ms [SLEEP]
+10:43:09 [rank 0] INFO  Epoch   7 | Batch   40/98 | Loss 0.6515 | X_t   582.9 ms [SLEEP]
+10:43:38 [rank 0] INFO  Epoch   7 | Batch   60/98 | Loss 0.8266 | X_t   583.6 ms [SLEEP]
+10:44:08 [rank 0] INFO  Epoch   7 | Batch   80/98 | Loss 0.6519 | X_t   590.8 ms [SLEEP]
+10:44:33 [rank 0] INFO  ── Epoch   7 summary  train_loss=0.6105  train_acc=78.39%  test_loss=0.8693  test_acc=72.16%  total_train_time=880.3s
+10:44:34 [rank 0] INFO  Epoch   8 | Batch    0/98 | Loss 0.5918 | X_t   582.2 ms [SLEEP]
+10:45:03 [rank 0] INFO  Epoch   8 | Batch   20/98 | Loss 0.6420 | X_t   584.1 ms [SLEEP]
+10:45:33 [rank 0] INFO  Epoch   8 | Batch   40/98 | Loss 0.6845 | X_t   592.5 ms [SLEEP]
+10:46:02 [rank 0] INFO  Epoch   8 | Batch   60/98 | Loss 0.5755 | X_t   583.3 ms [SLEEP]
+10:46:30 [rank 0] INFO  Epoch   8 | Batch   80/98 | Loss 0.5080 | X_t   582.4 ms
+10:46:48 [rank 0] INFO  ── Epoch   8 summary  train_loss=0.5542  train_acc=80.86%  test_loss=0.5912  test_acc=80.36%  total_train_time=1014.9s
+10:46:48 [rank 0] INFO  Epoch   9 | Batch    0/98 | Loss 0.4809 | X_t   582.7 ms
+10:47:00 [rank 0] INFO  Epoch   9 | Batch   20/98 | Loss 0.4656 | X_t   582.4 ms
+10:47:12 [rank 0] INFO  Epoch   9 | Batch   40/98 | Loss 0.5390 | X_t   583.1 ms [SLEEP]
+10:47:42 [rank 0] INFO  Epoch   9 | Batch   60/98 | Loss 0.5737 | X_t   592.9 ms [SLEEP]
+10:48:11 [rank 0] INFO  Epoch   9 | Batch   80/98 | Loss 0.3819 | X_t   583.6 ms [SLEEP]
+10:48:36 [rank 0] INFO  ── Epoch   9 summary  train_loss=0.5024  train_acc=82.41%  test_loss=0.7862  test_acc=74.36%  total_train_time=1123.1s
+10:48:36 [rank 0] INFO  Epoch  10 | Batch    0/98 | Loss 0.4515 | X_t   589.5 ms
+10:48:48 [rank 0] INFO  Epoch  10 | Batch   20/98 | Loss 0.4483 | X_t   582.2 ms
+10:49:00 [rank 0] INFO  Epoch  10 | Batch   40/98 | Loss 0.4907 | X_t   582.4 ms
+10:49:12 [rank 0] INFO  Epoch  10 | Batch   60/98 | Loss 0.5168 | X_t   583.5 ms [SLEEP]
+10:49:42 [rank 0] INFO  Epoch  10 | Batch   80/98 | Loss 0.5146 | X_t   590.1 ms [SLEEP]
+10:50:07 [rank 0] INFO  ── Epoch  10 summary  train_loss=0.4763  train_acc=83.41%  test_loss=0.5870  test_acc=81.92%  total_train_time=1213.7s
+10:50:08 [rank 0] INFO  Epoch  11 | Batch    0/98 | Loss 0.5119 | X_t   580.6 ms [SLEEP]
+10:50:37 [rank 0] INFO  Epoch  11 | Batch   20/98 | Loss 0.3083 | X_t   583.6 ms [SLEEP]
+10:50:57 [rank 0] INFO  Epoch  11 | Batch   40/98 | Loss 0.4940 | X_t   584.3 ms
+10:51:09 [rank 0] INFO  Epoch  11 | Batch   60/98 | Loss 0.4472 | X_t   582.5 ms
+10:51:20 [rank 0] INFO  Epoch  11 | Batch   80/98 | Loss 0.4410 | X_t   583.1 ms
+10:51:37 [rank 0] INFO  ── Epoch  11 summary  train_loss=0.4304  train_acc=85.32%  test_loss=0.7575  test_acc=76.76%  total_train_time=1304.3s
+10:51:39 [rank 0] INFO  Epoch  12 | Batch    0/98 | Loss 0.3064 | X_t   581.2 ms [SLEEP]
+10:52:08 [rank 0] INFO  Epoch  12 | Batch   20/98 | Loss 0.3693 | X_t   586.5 ms [SLEEP]
+10:52:37 [rank 0] INFO  Epoch  12 | Batch   40/98 | Loss 0.4792 | X_t   592.4 ms
+10:52:49 [rank 0] INFO  Epoch  12 | Batch   60/98 | Loss 0.2766 | X_t   583.2 ms [SLEEP]
+10:53:18 [rank 0] INFO  Epoch  12 | Batch   80/98 | Loss 0.3754 | X_t   582.8 ms [SLEEP]
+10:53:44 [rank 0] INFO  ── Epoch  12 summary  train_loss=0.3885  train_acc=86.42%  test_loss=0.5845  test_acc=82.04%  total_train_time=1430.2s
+10:53:45 [rank 0] INFO  Epoch  13 | Batch    0/98 | Loss 0.4157 | X_t   579.9 ms [SLEEP]
+10:54:05 [rank 0] INFO  Epoch  13 | Batch   20/98 | Loss 0.3840 | X_t   583.1 ms
+10:54:17 [rank 0] INFO  Epoch  13 | Batch   40/98 | Loss 0.4457 | X_t   583.4 ms [SLEEP]
+10:54:46 [rank 0] INFO  Epoch  13 | Batch   60/98 | Loss 0.3379 | X_t   582.2 ms
+10:54:57 [rank 0] INFO  Epoch  13 | Batch   80/98 | Loss 0.2951 | X_t   582.2 ms
+10:55:14 [rank 0] INFO  ── Epoch  13 summary  train_loss=0.3665  train_acc=87.25%  test_loss=0.4993  test_acc=83.60%  total_train_time=1520.8s
+10:55:16 [rank 0] INFO  Epoch  14 | Batch    0/98 | Loss 0.4327 | X_t   580.6 ms [SLEEP]
+10:55:45 [rank 0] INFO  Epoch  14 | Batch   20/98 | Loss 0.3803 | X_t   583.5 ms [SLEEP]
+10:56:14 [rank 0] INFO  Epoch  14 | Batch   40/98 | Loss 0.2648 | X_t   584.2 ms [SLEEP]
+10:56:44 [rank 0] INFO  Epoch  14 | Batch   60/98 | Loss 0.2996 | X_t   583.1 ms [SLEEP]
+10:57:13 [rank 0] INFO  Epoch  14 | Batch   80/98 | Loss 0.3378 | X_t   586.0 ms [SLEEP]
+10:57:38 [rank 0] INFO  ── Epoch  14 summary  train_loss=0.3438  train_acc=87.87%  test_loss=0.4750  test_acc=84.44%  total_train_time=1664.1s
+10:57:39 [rank 0] INFO  Epoch  15 | Batch    0/98 | Loss 0.3109 | X_t   581.3 ms [SLEEP]
+10:58:09 [rank 0] INFO  Epoch  15 | Batch   20/98 | Loss 0.4010 | X_t   583.0 ms [SLEEP]
+10:58:37 [rank 0] INFO  Epoch  15 | Batch   40/98 | Loss 0.3525 | X_t   582.7 ms
+10:58:49 [rank 0] INFO  Epoch  15 | Batch   60/98 | Loss 0.2105 | X_t   582.3 ms
+10:59:00 [rank 0] INFO  Epoch  15 | Batch   80/98 | Loss 0.3264 | X_t   582.4 ms
+10:59:10 [rank 0] INFO  ── Epoch  15 summary  train_loss=0.3247  train_acc=88.68%  test_loss=0.5078  test_acc=84.00%  total_train_time=1756.5s
+10:59:12 [rank 0] INFO  Epoch  16 | Batch    0/98 | Loss 0.2658 | X_t   580.8 ms [SLEEP]
+10:59:41 [rank 0] INFO  Epoch  16 | Batch   20/98 | Loss 0.3187 | X_t   583.3 ms [SLEEP]
+11:00:10 [rank 0] INFO  Epoch  16 | Batch   40/98 | Loss 0.2549 | X_t   583.4 ms [SLEEP]
+11:00:30 [rank 0] INFO  Epoch  16 | Batch   60/98 | Loss 0.3289 | X_t   582.3 ms
+11:00:42 [rank 0] INFO  Epoch  16 | Batch   80/98 | Loss 0.4557 | X_t   593.3 ms
+11:00:59 [rank 0] INFO  ── Epoch  16 summary  train_loss=0.3002  train_acc=89.89%  test_loss=0.4824  test_acc=83.92%  total_train_time=1864.7s
+11:01:00 [rank 0] INFO  Epoch  17 | Batch    0/98 | Loss 0.2294 | X_t   580.9 ms [SLEEP]
+11:01:30 [rank 0] INFO  Epoch  17 | Batch   20/98 | Loss 0.2564 | X_t   582.9 ms [SLEEP]
+11:01:59 [rank 0] INFO  Epoch  17 | Batch   40/98 | Loss 0.3624 | X_t   583.4 ms [SLEEP]
+11:02:19 [rank 0] INFO  Epoch  17 | Batch   60/98 | Loss 0.2770 | X_t   583.1 ms [SLEEP]
+11:02:49 [rank 0] INFO  Epoch  17 | Batch   80/98 | Loss 0.3256 | X_t   583.2 ms [SLEEP]
+11:03:14 [rank 0] INFO  ── Epoch  17 summary  train_loss=0.2932  train_acc=90.02%  test_loss=0.3953  test_acc=87.80%  total_train_time=1999.3s
+11:03:15 [rank 0] INFO  Epoch  18 | Batch    0/98 | Loss 0.2189 | X_t   581.0 ms [SLEEP]
+11:03:44 [rank 0] INFO  Epoch  18 | Batch   20/98 | Loss 0.3121 | X_t   583.4 ms [SLEEP]
+11:04:04 [rank 0] INFO  Epoch  18 | Batch   40/98 | Loss 0.2226 | X_t   582.2 ms
+11:04:16 [rank 0] INFO  Epoch  18 | Batch   60/98 | Loss 0.3029 | X_t   583.9 ms
+11:04:28 [rank 0] INFO  Epoch  18 | Batch   80/98 | Loss 0.1554 | X_t   584.8 ms [SLEEP]
+11:04:53 [rank 0] INFO  ── Epoch  18 summary  train_loss=0.2719  train_acc=90.48%  test_loss=0.4039  test_acc=87.20%  total_train_time=2098.8s
+11:04:55 [rank 0] INFO  Epoch  19 | Batch    0/98 | Loss 0.1873 | X_t   580.7 ms [SLEEP]
+11:05:24 [rank 0] INFO  Epoch  19 | Batch   20/98 | Loss 0.2199 | X_t   583.7 ms [SLEEP]
+11:05:53 [rank 0] INFO  Epoch  19 | Batch   40/98 | Loss 0.1629 | X_t   583.1 ms [SLEEP]
+11:06:23 [rank 0] INFO  Epoch  19 | Batch   60/98 | Loss 0.3186 | X_t   583.3 ms [SLEEP]
+11:06:42 [rank 0] INFO  Epoch  19 | Batch   80/98 | Loss 0.1543 | X_t   586.2 ms
+11:06:52 [rank 0] INFO  ── Epoch  19 summary  train_loss=0.2522  train_acc=91.34%  test_loss=0.4050  test_acc=86.64%  total_train_time=2217.5s
+11:06:53 [rank 0] INFO  Epoch  20 | Batch    0/98 | Loss 0.2227 | X_t   581.3 ms
+11:07:05 [rank 0] INFO  Epoch  20 | Batch   20/98 | Loss 0.2490 | X_t   583.0 ms
+11:07:26 [rank 0] INFO  Epoch  20 | Batch   40/98 | Loss 0.1921 | X_t   582.9 ms [SLEEP]
+11:07:55 [rank 0] INFO  Epoch  20 | Batch   60/98 | Loss 0.2711 | X_t   583.4 ms [SLEEP]
+11:08:15 [rank 0] INFO  Epoch  20 | Batch   80/98 | Loss 0.2621 | X_t   582.8 ms
+11:08:25 [rank 0] INFO  ── Epoch  20 summary  train_loss=0.2513  train_acc=91.27%  test_loss=0.4994  test_acc=83.68%  total_train_time=2309.9s
+11:08:25 [rank 0] INFO  Epoch  21 | Batch    0/98 | Loss 0.1430 | X_t   581.7 ms
+11:08:37 [rank 0] INFO  Epoch  21 | Batch   20/98 | Loss 0.2177 | X_t   586.3 ms
+11:08:49 [rank 0] INFO  Epoch  21 | Batch   40/98 | Loss 0.1879 | X_t   582.2 ms
+11:09:00 [rank 0] INFO  Epoch  21 | Batch   60/98 | Loss 0.2157 | X_t   582.3 ms
+11:09:13 [rank 0] INFO  Epoch  21 | Batch   80/98 | Loss 0.1817 | X_t   586.2 ms [SLEEP]
+11:09:38 [rank 0] INFO  ── Epoch  21 summary  train_loss=0.2302  train_acc=91.98%  test_loss=0.5895  test_acc=82.84%  total_train_time=2383.0s
+11:09:40 [rank 0] INFO  Epoch  22 | Batch    0/98 | Loss 0.2193 | X_t   581.2 ms [SLEEP]
+11:10:09 [rank 0] INFO  Epoch  22 | Batch   20/98 | Loss 0.2193 | X_t   583.9 ms [SLEEP]
+11:10:37 [rank 0] INFO  Epoch  22 | Batch   40/98 | Loss 0.1512 | X_t   582.2 ms
+11:10:49 [rank 0] INFO  Epoch  22 | Batch   60/98 | Loss 0.2456 | X_t   582.2 ms
+11:11:01 [rank 0] INFO  Epoch  22 | Batch   80/98 | Loss 0.2766 | X_t   589.2 ms [SLEEP]
+11:11:27 [rank 0] INFO  ── Epoch  22 summary  train_loss=0.2272  train_acc=91.87%  test_loss=0.4324  test_acc=86.00%  total_train_time=2491.2s
+11:11:27 [rank 0] INFO  Epoch  23 | Batch    0/98 | Loss 0.2031 | X_t   581.1 ms
+11:11:48 [rank 0] INFO  Epoch  23 | Batch   20/98 | Loss 0.2007 | X_t   584.2 ms [SLEEP]
+11:12:18 [rank 0] INFO  Epoch  23 | Batch   40/98 | Loss 0.2948 | X_t   593.1 ms [SLEEP]
+11:12:37 [rank 0] INFO  Epoch  23 | Batch   60/98 | Loss 0.1599 | X_t   582.2 ms
+11:12:49 [rank 0] INFO  Epoch  23 | Batch   80/98 | Loss 0.1533 | X_t   582.4 ms
+11:12:59 [rank 0] INFO  ── Epoch  23 summary  train_loss=0.2059  train_acc=92.74%  test_loss=0.4202  test_acc=87.04%  total_train_time=2583.6s
+11:13:00 [rank 0] INFO  Epoch  24 | Batch    0/98 | Loss 0.1897 | X_t   582.1 ms
+11:13:11 [rank 0] INFO  Epoch  24 | Batch   20/98 | Loss 0.1130 | X_t   588.7 ms
+11:13:23 [rank 0] INFO  Epoch  24 | Batch   40/98 | Loss 0.2328 | X_t   582.4 ms
+11:13:35 [rank 0] INFO  Epoch  24 | Batch   60/98 | Loss 0.3002 | X_t   583.0 ms
+11:13:47 [rank 0] INFO  Epoch  24 | Batch   80/98 | Loss 0.2295 | X_t   588.8 ms
+11:13:57 [rank 0] INFO  ── Epoch  24 summary  train_loss=0.2111  train_acc=92.76%  test_loss=0.4096  test_acc=87.44%  total_train_time=2640.9s
+11:13:57 [rank 0] INFO  Epoch  25 | Batch    0/98 | Loss 0.2023 | X_t   582.7 ms
+11:14:10 [rank 0] INFO  Epoch  25 | Batch   20/98 | Loss 0.3220 | X_t   586.3 ms [SLEEP]
+11:14:39 [rank 0] INFO  Epoch  25 | Batch   40/98 | Loss 0.1429 | X_t   583.1 ms [SLEEP]
+11:15:07 [rank 0] INFO  Epoch  25 | Batch   60/98 | Loss 0.2197 | X_t   583.4 ms
+11:15:19 [rank 0] INFO  Epoch  25 | Batch   80/98 | Loss 0.1778 | X_t   582.2 ms
+11:15:29 [rank 0] INFO  ── Epoch  25 summary  train_loss=0.2034  train_acc=92.79%  test_loss=0.4150  test_acc=86.92%  total_train_time=2733.3s
+11:15:30 [rank 0] INFO  Epoch  26 | Batch    0/98 | Loss 0.1236 | X_t   583.0 ms
+11:15:42 [rank 0] INFO  Epoch  26 | Batch   20/98 | Loss 0.1772 | X_t   587.4 ms
+11:16:03 [rank 0] INFO  Epoch  26 | Batch   40/98 | Loss 0.1779 | X_t   593.2 ms [SLEEP]
+11:16:32 [rank 0] INFO  Epoch  26 | Batch   60/98 | Loss 0.2598 | X_t   583.2 ms [SLEEP]
+11:17:01 [rank 0] INFO  Epoch  26 | Batch   80/98 | Loss 0.1432 | X_t   583.3 ms [SLEEP]
+11:17:19 [rank 0] INFO  ── Epoch  26 summary  train_loss=0.1905  train_acc=93.29%  test_loss=0.5472  test_acc=84.72%  total_train_time=2843.2s
+11:17:20 [rank 0] INFO  Epoch  27 | Batch    0/98 | Loss 0.2203 | X_t   581.8 ms
+11:17:32 [rank 0] INFO  Epoch  27 | Batch   20/98 | Loss 0.1468 | X_t   592.3 ms
+11:17:44 [rank 0] INFO  Epoch  27 | Batch   40/98 | Loss 0.1869 | X_t   582.7 ms [SLEEP]
+11:18:05 [rank 0] INFO  Epoch  27 | Batch   60/98 | Loss 0.1779 | X_t   582.7 ms [SLEEP]
+11:18:34 [rank 0] INFO  Epoch  27 | Batch   80/98 | Loss 0.1323 | X_t   583.4 ms [SLEEP]
+11:18:59 [rank 0] INFO  ── Epoch  27 summary  train_loss=0.1885  train_acc=93.54%  test_loss=0.3687  test_acc=88.36%  total_train_time=2942.6s
+11:19:00 [rank 0] INFO  Epoch  28 | Batch    0/98 | Loss 0.1815 | X_t   580.6 ms [SLEEP]
+11:19:30 [rank 0] INFO  Epoch  28 | Batch   20/98 | Loss 0.1816 | X_t   583.3 ms [SLEEP]
+11:19:59 [rank 0] INFO  Epoch  28 | Batch   40/98 | Loss 0.0940 | X_t   583.0 ms [SLEEP]
+11:20:28 [rank 0] INFO  Epoch  28 | Batch   60/98 | Loss 0.1185 | X_t   582.8 ms [SLEEP]
+11:20:48 [rank 0] INFO  Epoch  28 | Batch   80/98 | Loss 0.1064 | X_t   582.7 ms
+11:20:58 [rank 0] INFO  ── Epoch  28 summary  train_loss=0.1796  train_acc=93.93%  test_loss=0.4018  test_acc=87.28%  total_train_time=3061.4s
+11:20:59 [rank 0] INFO  Epoch  29 | Batch    0/98 | Loss 0.1797 | X_t   580.7 ms [SLEEP]
+11:21:29 [rank 0] INFO  Epoch  29 | Batch   20/98 | Loss 0.1018 | X_t   583.6 ms [SLEEP]
+11:21:58 [rank 0] INFO  Epoch  29 | Batch   40/98 | Loss 0.1727 | X_t   587.8 ms [SLEEP]
+11:22:27 [rank 0] INFO  Epoch  29 | Batch   60/98 | Loss 0.1386 | X_t   583.0 ms [SLEEP]
+11:22:48 [rank 0] INFO  Epoch  29 | Batch   80/98 | Loss 0.2303 | X_t   589.4 ms [SLEEP]
+11:23:13 [rank 0] INFO  ── Epoch  29 summary  train_loss=0.1635  train_acc=94.55%  test_loss=0.5001  test_acc=85.36%  total_train_time=3196.0s
+11:23:14 [rank 0] INFO  Epoch  30 | Batch    0/98 | Loss 0.2098 | X_t   582.6 ms [SLEEP]
+11:23:43 [rank 0] INFO  Epoch  30 | Batch   20/98 | Loss 0.1151 | X_t   583.1 ms [SLEEP]
+11:24:12 [rank 0] INFO  Epoch  30 | Batch   40/98 | Loss 0.2227 | X_t   591.7 ms
+11:24:33 [rank 0] INFO  Epoch  30 | Batch   60/98 | Loss 0.1879 | X_t   584.5 ms [SLEEP]
+11:25:02 [rank 0] INFO  Epoch  30 | Batch   80/98 | Loss 0.1619 | X_t   583.4 ms [SLEEP]
+11:25:27 [rank 0] INFO  ── Epoch  30 summary  train_loss=0.1681  train_acc=94.17%  test_loss=0.3962  test_acc=88.36%  total_train_time=3330.6s
+11:25:29 [rank 0] INFO  Epoch  31 | Batch    0/98 | Loss 0.1286 | X_t   581.4 ms [SLEEP]
+11:25:58 [rank 0] INFO  Epoch  31 | Batch   20/98 | Loss 0.1790 | X_t   583.6 ms [SLEEP]
+11:26:18 [rank 0] INFO  Epoch  31 | Batch   40/98 | Loss 0.0720 | X_t   582.6 ms
+11:26:30 [rank 0] INFO  Epoch  31 | Batch   60/98 | Loss 0.1432 | X_t   583.6 ms
+11:26:42 [rank 0] INFO  Epoch  31 | Batch   80/98 | Loss 0.1596 | X_t   582.9 ms [SLEEP]
+11:27:07 [rank 0] INFO  ── Epoch  31 summary  train_loss=0.1615  train_acc=94.42%  test_loss=0.3796  test_acc=88.56%  total_train_time=3430.0s
+11:27:09 [rank 0] INFO  Epoch  32 | Batch    0/98 | Loss 0.1232 | X_t   580.5 ms [SLEEP]
+11:27:38 [rank 0] INFO  Epoch  32 | Batch   20/98 | Loss 0.1934 | X_t   591.9 ms [SLEEP]
+11:28:06 [rank 0] INFO  Epoch  32 | Batch   40/98 | Loss 0.2511 | X_t   582.4 ms
+11:28:18 [rank 0] INFO  Epoch  32 | Batch   60/98 | Loss 0.0985 | X_t   582.3 ms
+11:28:30 [rank 0] INFO  Epoch  32 | Batch   80/98 | Loss 0.1679 | X_t   582.8 ms
+11:28:40 [rank 0] INFO  ── Epoch  32 summary  train_loss=0.1503  train_acc=94.78%  test_loss=0.4138  test_acc=88.16%  total_train_time=3522.4s
+11:28:40 [rank 0] INFO  Epoch  33 | Batch    0/98 | Loss 0.1061 | X_t   581.0 ms
+11:28:52 [rank 0] INFO  Epoch  33 | Batch   20/98 | Loss 0.1770 | X_t   589.9 ms
+11:29:13 [rank 0] INFO  Epoch  33 | Batch   40/98 | Loss 0.2402 | X_t   583.1 ms [SLEEP]
+11:29:43 [rank 0] INFO  Epoch  33 | Batch   60/98 | Loss 0.2443 | X_t   583.3 ms [SLEEP]
+11:30:12 [rank 0] INFO  Epoch  33 | Batch   80/98 | Loss 0.1430 | X_t   583.3 ms [SLEEP]
+11:30:37 [rank 0] INFO  ── Epoch  33 summary  train_loss=0.1490  train_acc=94.85%  test_loss=0.3724  test_acc=89.60%  total_train_time=3639.4s
+11:30:38 [rank 0] INFO  Epoch  34 | Batch    0/98 | Loss 0.0858 | X_t   581.4 ms [SLEEP]
+11:31:07 [rank 0] INFO  Epoch  34 | Batch   20/98 | Loss 0.1082 | X_t   590.7 ms
+11:31:28 [rank 0] INFO  Epoch  34 | Batch   40/98 | Loss 0.1898 | X_t   583.1 ms [SLEEP]
+11:31:57 [rank 0] INFO  Epoch  34 | Batch   60/98 | Loss 0.1163 | X_t   583.3 ms [SLEEP]
+11:32:27 [rank 0] INFO  Epoch  34 | Batch   80/98 | Loss 0.1216 | X_t   587.8 ms [SLEEP]
+11:32:52 [rank 0] INFO  ── Epoch  34 summary  train_loss=0.1362  train_acc=95.31%  test_loss=0.4504  test_acc=86.76%  total_train_time=3774.0s
+11:32:53 [rank 0] INFO  Epoch  35 | Batch    0/98 | Loss 0.0748 | X_t   581.2 ms [SLEEP]
+11:33:22 [rank 0] INFO  Epoch  35 | Batch   20/98 | Loss 0.0807 | X_t   583.7 ms [SLEEP]
+11:33:42 [rank 0] INFO  Epoch  35 | Batch   40/98 | Loss 0.1238 | X_t   592.4 ms
+11:34:03 [rank 0] INFO  Epoch  35 | Batch   60/98 | Loss 0.0952 | X_t   583.1 ms [SLEEP]
+11:34:32 [rank 0] INFO  Epoch  35 | Batch   80/98 | Loss 0.1162 | X_t   591.5 ms
+11:34:42 [rank 0] INFO  ── Epoch  35 summary  train_loss=0.1315  train_acc=95.47%  test_loss=0.3798  test_acc=88.56%  total_train_time=3883.9s
+11:34:42 [rank 0] INFO  Epoch  36 | Batch    0/98 | Loss 0.0967 | X_t   583.2 ms
+11:34:54 [rank 0] INFO  Epoch  36 | Batch   20/98 | Loss 0.1368 | X_t   582.5 ms
+11:35:06 [rank 0] INFO  Epoch  36 | Batch   40/98 | Loss 0.1282 | X_t   583.6 ms
+11:35:17 [rank 0] INFO  Epoch  36 | Batch   60/98 | Loss 0.0871 | X_t   583.2 ms
+11:35:30 [rank 0] INFO  Epoch  36 | Batch   80/98 | Loss 0.1880 | X_t   583.1 ms [SLEEP]
+11:35:55 [rank 0] INFO  ── Epoch  36 summary  train_loss=0.1286  train_acc=95.56%  test_loss=0.4381  test_acc=86.96%  total_train_time=3957.0s
+11:35:57 [rank 0] INFO  Epoch  37 | Batch    0/98 | Loss 0.1603 | X_t   588.3 ms [SLEEP]
+11:36:26 [rank 0] INFO  Epoch  37 | Batch   20/98 | Loss 0.0950 | X_t   583.1 ms [SLEEP]
+11:36:55 [rank 0] INFO  Epoch  37 | Batch   40/98 | Loss 0.1306 | X_t   583.4 ms [SLEEP]
+11:37:15 [rank 0] INFO  Epoch  37 | Batch   60/98 | Loss 0.1241 | X_t   583.0 ms
+11:37:26 [rank 0] INFO  Epoch  37 | Batch   80/98 | Loss 0.0740 | X_t   585.1 ms
+11:37:36 [rank 0] INFO  ── Epoch  37 summary  train_loss=0.1235  train_acc=95.58%  test_loss=0.3642  test_acc=89.68%  total_train_time=4058.2s
+11:37:37 [rank 0] INFO  Epoch  38 | Batch    0/98 | Loss 0.0626 | X_t   581.9 ms
+11:37:49 [rank 0] INFO  Epoch  38 | Batch   20/98 | Loss 0.1496 | X_t   582.6 ms
+11:38:00 [rank 0] INFO  Epoch  38 | Batch   40/98 | Loss 0.0812 | X_t   582.2 ms
+11:38:13 [rank 0] INFO  Epoch  38 | Batch   60/98 | Loss 0.2156 | X_t   584.4 ms [SLEEP]
+11:38:42 [rank 0] INFO  Epoch  38 | Batch   80/98 | Loss 0.2033 | X_t   583.4 ms [SLEEP]
+11:39:07 [rank 0] INFO  ── Epoch  38 summary  train_loss=0.1320  train_acc=95.59%  test_loss=0.3747  test_acc=88.88%  total_train_time=4148.9s
+11:39:09 [rank 0] INFO  Epoch  39 | Batch    0/98 | Loss 0.0485 | X_t   580.9 ms [SLEEP]
+11:39:38 [rank 0] INFO  Epoch  39 | Batch   20/98 | Loss 0.0988 | X_t   583.5 ms [SLEEP]
+11:40:06 [rank 0] INFO  Epoch  39 | Batch   40/98 | Loss 0.0722 | X_t   589.0 ms
+11:40:18 [rank 0] INFO  Epoch  39 | Batch   60/98 | Loss 0.1827 | X_t   582.5 ms
+11:40:30 [rank 0] INFO  Epoch  39 | Batch   80/98 | Loss 0.0973 | X_t   582.8 ms
+11:40:40 [rank 0] INFO  ── Epoch  39 summary  train_loss=0.1181  train_acc=95.82%  test_loss=0.3296  test_acc=90.72%  total_train_time=4241.3s
+11:40:41 [rank 0] INFO  Epoch  40 | Batch    0/98 | Loss 0.1118 | X_t   581.7 ms
+11:40:52 [rank 0] INFO  Epoch  40 | Batch   20/98 | Loss 0.2039 | X_t   582.5 ms
+11:41:04 [rank 0] INFO  Epoch  40 | Batch   40/98 | Loss 0.0890 | X_t   582.2 ms
+11:41:24 [rank 0] INFO  Epoch  40 | Batch   60/98 | Loss 0.2246 | X_t   584.0 ms
+11:41:36 [rank 0] INFO  Epoch  40 | Batch   80/98 | Loss 0.1035 | X_t   582.4 ms
+11:41:46 [rank 0] INFO  ── Epoch  40 summary  train_loss=0.1125  train_acc=96.17%  test_loss=0.3844  test_acc=88.52%  total_train_time=4307.3s
+11:41:47 [rank 0] INFO  Epoch  41 | Batch    0/98 | Loss 0.0567 | X_t   582.1 ms
+11:41:58 [rank 0] INFO  Epoch  41 | Batch   20/98 | Loss 0.1157 | X_t   582.4 ms
+11:42:11 [rank 0] INFO  Epoch  41 | Batch   40/98 | Loss 0.0422 | X_t   582.9 ms [SLEEP]
+11:42:31 [rank 0] INFO  Epoch  41 | Batch   60/98 | Loss 0.0806 | X_t   582.3 ms
+11:42:42 [rank 0] INFO  Epoch  41 | Batch   80/98 | Loss 0.1021 | X_t   582.4 ms
+11:42:59 [rank 0] INFO  ── Epoch  41 summary  train_loss=0.1035  train_acc=96.42%  test_loss=0.3423  test_acc=90.20%  total_train_time=4380.4s
+11:43:01 [rank 0] INFO  Epoch  42 | Batch    0/98 | Loss 0.1051 | X_t   581.2 ms [SLEEP]
+11:43:29 [rank 0] INFO  Epoch  42 | Batch   20/98 | Loss 0.0873 | X_t   583.7 ms
+11:43:41 [rank 0] INFO  Epoch  42 | Batch   40/98 | Loss 0.1186 | X_t   582.4 ms
+11:43:53 [rank 0] INFO  Epoch  42 | Batch   60/98 | Loss 0.0748 | X_t   583.7 ms
+11:44:14 [rank 0] INFO  Epoch  42 | Batch   80/98 | Loss 0.0805 | X_t   583.1 ms [SLEEP]
+11:44:39 [rank 0] INFO  ── Epoch  42 summary  train_loss=0.1054  train_acc=96.21%  test_loss=0.3921  test_acc=89.76%  total_train_time=4479.8s
+11:44:40 [rank 0] INFO  Epoch  43 | Batch    0/98 | Loss 0.0783 | X_t   582.0 ms
+11:44:52 [rank 0] INFO  Epoch  43 | Batch   20/98 | Loss 0.0658 | X_t   585.4 ms [SLEEP]
+11:45:21 [rank 0] INFO  Epoch  43 | Batch   40/98 | Loss 0.0960 | X_t   589.1 ms [SLEEP]
+11:45:41 [rank 0] INFO  Epoch  43 | Batch   60/98 | Loss 0.1360 | X_t   582.3 ms
+11:45:53 [rank 0] INFO  Epoch  43 | Batch   80/98 | Loss 0.0895 | X_t   582.2 ms
+11:46:03 [rank 0] INFO  ── Epoch  43 summary  train_loss=0.0985  train_acc=96.51%  test_loss=0.3781  test_acc=88.68%  total_train_time=4563.4s
+11:46:03 [rank 0] INFO  Epoch  44 | Batch    0/98 | Loss 0.0793 | X_t   581.9 ms
+11:46:15 [rank 0] INFO  Epoch  44 | Batch   20/98 | Loss 0.0497 | X_t   582.5 ms
+11:46:27 [rank 0] INFO  Epoch  44 | Batch   40/98 | Loss 0.1295 | X_t   591.3 ms
+11:46:39 [rank 0] INFO  Epoch  44 | Batch   60/98 | Loss 0.0675 | X_t   582.4 ms
+11:46:50 [rank 0] INFO  Epoch  44 | Batch   80/98 | Loss 0.0630 | X_t   582.3 ms
+11:47:00 [rank 0] INFO  ── Epoch  44 summary  train_loss=0.1046  train_acc=96.25%  test_loss=0.3212  test_acc=90.16%  total_train_time=4620.7s
+11:47:01 [rank 0] INFO  Epoch  45 | Batch    0/98 | Loss 0.0625 | X_t   581.7 ms
+11:47:13 [rank 0] INFO  Epoch  45 | Batch   20/98 | Loss 0.1402 | X_t   582.5 ms
+11:47:24 [rank 0] INFO  Epoch  45 | Batch   40/98 | Loss 0.0303 | X_t   584.0 ms
+11:47:36 [rank 0] INFO  Epoch  45 | Batch   60/98 | Loss 0.1186 | X_t   582.5 ms
+11:47:48 [rank 0] INFO  Epoch  45 | Batch   80/98 | Loss 0.1179 | X_t   584.7 ms
+11:47:58 [rank 0] INFO  ── Epoch  45 summary  train_loss=0.0923  train_acc=96.75%  test_loss=0.3610  test_acc=89.52%  total_train_time=4678.0s
+11:47:59 [rank 0] INFO  Epoch  46 | Batch    0/98 | Loss 0.1007 | X_t   581.6 ms [SLEEP]
+11:48:29 [rank 0] INFO  Epoch  46 | Batch   20/98 | Loss 0.0476 | X_t   583.3 ms [SLEEP]
+11:48:58 [rank 0] INFO  Epoch  46 | Batch   40/98 | Loss 0.0994 | X_t   590.0 ms [SLEEP]
+11:49:17 [rank 0] INFO  Epoch  46 | Batch   60/98 | Loss 0.1304 | X_t   582.7 ms
+11:49:29 [rank 0] INFO  Epoch  46 | Batch   80/98 | Loss 0.1926 | X_t   582.2 ms
+11:49:46 [rank 0] INFO  ── Epoch  46 summary  train_loss=0.0855  train_acc=96.94%  test_loss=0.3477  test_acc=90.40%  total_train_time=4786.2s
+11:49:48 [rank 0] INFO  Epoch  47 | Batch    0/98 | Loss 0.0992 | X_t   580.7 ms [SLEEP]
+11:50:17 [rank 0] INFO  Epoch  47 | Batch   20/98 | Loss 0.0504 | X_t   582.6 ms [SLEEP]
+11:50:46 [rank 0] INFO  Epoch  47 | Batch   40/98 | Loss 0.0693 | X_t   584.6 ms [SLEEP]
+11:51:15 [rank 0] INFO  Epoch  47 | Batch   60/98 | Loss 0.1138 | X_t   583.3 ms [SLEEP]
+11:51:45 [rank 0] INFO  Epoch  47 | Batch   80/98 | Loss 0.0740 | X_t   582.6 ms [SLEEP]
+11:52:10 [rank 0] INFO  ── Epoch  47 summary  train_loss=0.0844  train_acc=97.04%  test_loss=0.3035  test_acc=91.16%  total_train_time=4929.5s
+11:52:11 [rank 0] INFO  Epoch  48 | Batch    0/98 | Loss 0.1735 | X_t   581.2 ms [SLEEP]
+11:52:31 [rank 0] INFO  Epoch  48 | Batch   20/98 | Loss 0.0705 | X_t   582.3 ms
+11:52:43 [rank 0] INFO  Epoch  48 | Batch   40/98 | Loss 0.0993 | X_t   583.9 ms
+11:52:54 [rank 0] INFO  Epoch  48 | Batch   60/98 | Loss 0.0456 | X_t   582.5 ms
+11:53:06 [rank 0] INFO  Epoch  48 | Batch   80/98 | Loss 0.0570 | X_t   583.5 ms
+11:53:16 [rank 0] INFO  ── Epoch  48 summary  train_loss=0.0851  train_acc=97.16%  test_loss=0.3395  test_acc=90.72%  total_train_time=4995.6s
+11:53:17 [rank 0] INFO  Epoch  49 | Batch    0/98 | Loss 0.0951 | X_t   582.9 ms
+11:53:28 [rank 0] INFO  Epoch  49 | Batch   20/98 | Loss 0.0713 | X_t   582.4 ms
+11:53:50 [rank 0] INFO  Epoch  49 | Batch   40/98 | Loss 0.0891 | X_t   583.1 ms [SLEEP]
+11:54:19 [rank 0] INFO  Epoch  49 | Batch   60/98 | Loss 0.0975 | X_t   583.1 ms [SLEEP]
+11:54:38 [rank 0] INFO  Epoch  49 | Batch   80/98 | Loss 0.0546 | X_t   582.4 ms
+11:54:56 [rank 0] INFO  ── Epoch  49 summary  train_loss=0.0729  train_acc=97.46%  test_loss=0.3563  test_acc=90.20%  total_train_time=5095.0s
+11:54:57 [rank 0] INFO  Epoch  50 | Batch    0/98 | Loss 0.0445 | X_t   580.8 ms [SLEEP]
+11:55:17 [rank 0] INFO  Epoch  50 | Batch   20/98 | Loss 0.0559 | X_t   586.6 ms
+11:55:29 [rank 0] INFO  Epoch  50 | Batch   40/98 | Loss 0.1215 | X_t   584.1 ms [SLEEP]
+11:55:58 [rank 0] INFO  Epoch  50 | Batch   60/98 | Loss 0.0567 | X_t   582.5 ms
+11:56:10 [rank 0] INFO  Epoch  50 | Batch   80/98 | Loss 0.0865 | X_t   582.6 ms [SLEEP]
+11:56:35 [rank 0] INFO  ── Epoch  50 summary  train_loss=0.0728  train_acc=97.62%  test_loss=0.3910  test_acc=90.08%  total_train_time=5194.4s
+11:56:37 [rank 0] INFO  Epoch  51 | Batch    0/98 | Loss 0.0309 | X_t   580.7 ms [SLEEP]
+11:57:06 [rank 0] INFO  Epoch  51 | Batch   20/98 | Loss 0.0566 | X_t   583.4 ms [SLEEP]
+11:57:35 [rank 0] INFO  Epoch  51 | Batch   40/98 | Loss 0.0265 | X_t   583.5 ms [SLEEP]
+11:58:04 [rank 0] INFO  Epoch  51 | Batch   60/98 | Loss 0.0655 | X_t   583.9 ms [SLEEP]
+11:58:25 [rank 0] INFO  Epoch  51 | Batch   80/98 | Loss 0.0686 | X_t   583.1 ms [SLEEP]
+11:58:50 [rank 0] INFO  ── Epoch  51 summary  train_loss=0.0658  train_acc=97.70%  test_loss=0.3050  test_acc=90.92%  total_train_time=5328.9s
+11:58:51 [rank 0] INFO  Epoch  52 | Batch    0/98 | Loss 0.0693 | X_t   588.7 ms [SLEEP]
+11:59:21 [rank 0] INFO  Epoch  52 | Batch   20/98 | Loss 0.0278 | X_t   583.7 ms [SLEEP]
+11:59:50 [rank 0] INFO  Epoch  52 | Batch   40/98 | Loss 0.1369 | X_t   583.2 ms [SLEEP]
+12:00:19 [rank 0] INFO  Epoch  52 | Batch   60/98 | Loss 0.0566 | X_t   585.5 ms [SLEEP]
+12:00:40 [rank 0] INFO  Epoch  52 | Batch   80/98 | Loss 0.0937 | X_t   582.5 ms [SLEEP]
+12:00:58 [rank 0] INFO  ── Epoch  52 summary  train_loss=0.0600  train_acc=97.97%  test_loss=0.3445  test_acc=89.92%  total_train_time=5456.5s
+12:00:59 [rank 0] INFO  Epoch  53 | Batch    0/98 | Loss 0.0263 | X_t   582.0 ms [SLEEP]
+12:01:28 [rank 0] INFO  Epoch  53 | Batch   20/98 | Loss 0.0467 | X_t   583.9 ms [SLEEP]
+12:01:58 [rank 0] INFO  Epoch  53 | Batch   40/98 | Loss 0.0206 | X_t   594.2 ms [SLEEP]
+12:02:26 [rank 0] INFO  Epoch  53 | Batch   60/98 | Loss 0.0715 | X_t   582.4 ms
+12:02:38 [rank 0] INFO  Epoch  53 | Batch   80/98 | Loss 0.0905 | X_t   582.3 ms
+12:02:55 [rank 0] INFO  ── Epoch  53 summary  train_loss=0.0569  train_acc=98.18%  test_loss=0.3562  test_acc=90.08%  total_train_time=5573.5s
+12:02:56 [rank 0] INFO  Epoch  54 | Batch    0/98 | Loss 0.0357 | X_t   581.1 ms [SLEEP]
+12:03:25 [rank 0] INFO  Epoch  54 | Batch   20/98 | Loss 0.0420 | X_t   582.7 ms
+12:03:46 [rank 0] INFO  Epoch  54 | Batch   40/98 | Loss 0.0602 | X_t   601.2 ms [SLEEP]
+12:04:15 [rank 0] INFO  Epoch  54 | Batch   60/98 | Loss 0.0629 | X_t   585.0 ms [SLEEP]
+12:04:45 [rank 0] INFO  Epoch  54 | Batch   80/98 | Loss 0.0252 | X_t   582.6 ms [SLEEP]
+12:05:03 [rank 0] INFO  ── Epoch  54 summary  train_loss=0.0528  train_acc=98.26%  test_loss=0.3202  test_acc=90.88%  total_train_time=5701.0s
+12:05:03 [rank 0] INFO  Epoch  55 | Batch    0/98 | Loss 0.0636 | X_t   582.8 ms
+12:05:16 [rank 0] INFO  Epoch  55 | Batch   20/98 | Loss 0.0657 | X_t   586.3 ms [SLEEP]
+12:05:45 [rank 0] INFO  Epoch  55 | Batch   40/98 | Loss 0.0632 | X_t   583.5 ms [SLEEP]
+12:06:13 [rank 0] INFO  Epoch  55 | Batch   60/98 | Loss 0.0284 | X_t   585.7 ms
+12:06:25 [rank 0] INFO  Epoch  55 | Batch   80/98 | Loss 0.1034 | X_t   582.1 ms
+12:06:35 [rank 0] INFO  ── Epoch  55 summary  train_loss=0.0555  train_acc=98.13%  test_loss=0.3545  test_acc=90.40%  total_train_time=5793.4s
+12:06:36 [rank 0] INFO  Epoch  56 | Batch    0/98 | Loss 0.0447 | X_t   581.8 ms
+12:06:48 [rank 0] INFO  Epoch  56 | Batch   20/98 | Loss 0.0462 | X_t   583.4 ms
+12:06:59 [rank 0] INFO  Epoch  56 | Batch   40/98 | Loss 0.0421 | X_t   582.2 ms
+12:07:12 [rank 0] INFO  Epoch  56 | Batch   60/98 | Loss 0.0534 | X_t   582.8 ms [SLEEP]
+12:07:41 [rank 0] INFO  Epoch  56 | Batch   80/98 | Loss 0.0643 | X_t   584.4 ms [SLEEP]
+12:08:06 [rank 0] INFO  ── Epoch  56 summary  train_loss=0.0466  train_acc=98.51%  test_loss=0.3677  test_acc=90.52%  total_train_time=5884.0s
+12:08:08 [rank 0] INFO  Epoch  57 | Batch    0/98 | Loss 0.0641 | X_t   580.9 ms [SLEEP]
+12:08:37 [rank 0] INFO  Epoch  57 | Batch   20/98 | Loss 0.0791 | X_t   583.2 ms [SLEEP]
+12:09:06 [rank 0] INFO  Epoch  57 | Batch   40/98 | Loss 0.0144 | X_t   583.5 ms [SLEEP]
+12:09:35 [rank 0] INFO  Epoch  57 | Batch   60/98 | Loss 0.0408 | X_t   584.7 ms [SLEEP]
+12:10:05 [rank 0] INFO  Epoch  57 | Batch   80/98 | Loss 0.0565 | X_t   583.0 ms [SLEEP]
+12:10:30 [rank 0] INFO  ── Epoch  57 summary  train_loss=0.0455  train_acc=98.47%  test_loss=0.3190  test_acc=91.88%  total_train_time=6027.4s
+12:10:31 [rank 0] INFO  Epoch  58 | Batch    0/98 | Loss 0.0079 | X_t   581.5 ms [SLEEP]
+12:11:00 [rank 0] INFO  Epoch  58 | Batch   20/98 | Loss 0.0462 | X_t   584.9 ms [SLEEP]
+12:11:20 [rank 0] INFO  Epoch  58 | Batch   40/98 | Loss 0.0274 | X_t   582.3 ms
+12:11:32 [rank 0] INFO  Epoch  58 | Batch   60/98 | Loss 0.0225 | X_t   588.9 ms
+12:11:43 [rank 0] INFO  Epoch  58 | Batch   80/98 | Loss 0.0924 | X_t   582.4 ms
+12:12:00 [rank 0] INFO  ── Epoch  58 summary  train_loss=0.0392  train_acc=98.76%  test_loss=0.3256  test_acc=91.28%  total_train_time=6118.0s
+12:12:02 [rank 0] INFO  Epoch  59 | Batch    0/98 | Loss 0.0367 | X_t   581.2 ms [SLEEP]
+12:12:22 [rank 0] INFO  Epoch  59 | Batch   20/98 | Loss 0.0076 | X_t   588.2 ms
+12:12:33 [rank 0] INFO  Epoch  59 | Batch   40/98 | Loss 0.0188 | X_t   583.4 ms
+12:12:45 [rank 0] INFO  Epoch  59 | Batch   60/98 | Loss 0.0342 | X_t   582.2 ms
+12:12:57 [rank 0] INFO  Epoch  59 | Batch   80/98 | Loss 0.0298 | X_t   583.0 ms [SLEEP]
+12:13:22 [rank 0] INFO  ── Epoch  59 summary  train_loss=0.0353  train_acc=98.90%  test_loss=0.3548  test_acc=91.52%  total_train_time=6199.9s
+12:13:23 [rank 0] INFO  Epoch  60 | Batch    0/98 | Loss 0.0252 | X_t   582.1 ms
+12:13:35 [rank 0] INFO  Epoch  60 | Batch   20/98 | Loss 0.0220 | X_t   582.9 ms
+12:13:46 [rank 0] INFO  Epoch  60 | Batch   40/98 | Loss 0.0334 | X_t   588.4 ms
+12:13:58 [rank 0] INFO  Epoch  60 | Batch   60/98 | Loss 0.0531 | X_t   582.9 ms
+12:14:11 [rank 0] INFO  Epoch  60 | Batch   80/98 | Loss 0.0402 | X_t   582.9 ms [SLEEP]
+12:14:36 [rank 0] INFO  ── Epoch  60 summary  train_loss=0.0354  train_acc=98.82%  test_loss=0.3336  test_acc=91.84%  total_train_time=6273.0s
+12:14:37 [rank 0] INFO  Epoch  61 | Batch    0/98 | Loss 0.0089 | X_t   580.7 ms [SLEEP]
+12:15:06 [rank 0] INFO  Epoch  61 | Batch   20/98 | Loss 0.0282 | X_t   593.8 ms [SLEEP]
+12:15:36 [rank 0] INFO  Epoch  61 | Batch   40/98 | Loss 0.0062 | X_t   582.8 ms [SLEEP]
+12:16:05 [rank 0] INFO  Epoch  61 | Batch   60/98 | Loss 0.0100 | X_t   583.0 ms [SLEEP]
+12:16:34 [rank 0] INFO  Epoch  61 | Batch   80/98 | Loss 0.0750 | X_t   586.4 ms [SLEEP]
+12:16:59 [rank 0] INFO  ── Epoch  61 summary  train_loss=0.0280  train_acc=99.11%  test_loss=0.2998  test_acc=92.80%  total_train_time=6416.3s
+12:17:01 [rank 0] INFO  Epoch  62 | Batch    0/98 | Loss 0.0087 | X_t   581.7 ms [SLEEP]
+12:17:21 [rank 0] INFO  Epoch  62 | Batch   20/98 | Loss 0.0221 | X_t   584.6 ms [SLEEP]
+12:17:41 [rank 0] INFO  Epoch  62 | Batch   40/98 | Loss 0.0247 | X_t   582.5 ms
+12:17:53 [rank 0] INFO  Epoch  62 | Batch   60/98 | Loss 0.0311 | X_t   586.5 ms [SLEEP]
+12:18:23 [rank 0] INFO  Epoch  62 | Batch   80/98 | Loss 0.0625 | X_t   589.7 ms [SLEEP]
+12:18:48 [rank 0] INFO  ── Epoch  62 summary  train_loss=0.0244  train_acc=99.25%  test_loss=0.3313  test_acc=91.96%  total_train_time=6524.5s
+12:18:49 [rank 0] INFO  Epoch  63 | Batch    0/98 | Loss 0.0227 | X_t   582.3 ms [SLEEP]
+12:19:18 [rank 0] INFO  Epoch  63 | Batch   20/98 | Loss 0.0234 | X_t   583.6 ms [SLEEP]
+12:19:39 [rank 0] INFO  Epoch  63 | Batch   40/98 | Loss 0.0082 | X_t   583.1 ms [SLEEP]
+12:20:07 [rank 0] INFO  Epoch  63 | Batch   60/98 | Loss 0.0446 | X_t   586.4 ms
+12:20:29 [rank 0] INFO  Epoch  63 | Batch   80/98 | Loss 0.0107 | X_t   583.3 ms [SLEEP]
+12:20:54 [rank 0] INFO  ── Epoch  63 summary  train_loss=0.0261  train_acc=99.18%  test_loss=0.3194  test_acc=91.64%  total_train_time=6650.3s
+12:20:55 [rank 0] INFO  Epoch  64 | Batch    0/98 | Loss 0.0077 | X_t   581.1 ms [SLEEP]
+12:21:24 [rank 0] INFO  Epoch  64 | Batch   20/98 | Loss 0.0103 | X_t   583.6 ms [SLEEP]
+12:21:44 [rank 0] INFO  Epoch  64 | Batch   40/98 | Loss 0.0659 | X_t   582.4 ms
+12:21:56 [rank 0] INFO  Epoch  64 | Batch   60/98 | Loss 0.0134 | X_t   582.2 ms
+12:22:07 [rank 0] INFO  Epoch  64 | Batch   80/98 | Loss 0.0483 | X_t   587.0 ms
+12:22:18 [rank 0] INFO  ── Epoch  64 summary  train_loss=0.0271  train_acc=99.11%  test_loss=0.2882  test_acc=92.36%  total_train_time=6734.0s
+12:22:19 [rank 0] INFO  Epoch  65 | Batch    0/98 | Loss 0.0330 | X_t   580.8 ms [SLEEP]
+12:22:39 [rank 0] INFO  Epoch  65 | Batch   20/98 | Loss 0.0140 | X_t   582.5 ms
+12:22:50 [rank 0] INFO  Epoch  65 | Batch   40/98 | Loss 0.0119 | X_t   582.3 ms
+12:23:03 [rank 0] INFO  Epoch  65 | Batch   60/98 | Loss 0.0388 | X_t   585.7 ms [SLEEP]
+12:23:31 [rank 0] INFO  Epoch  65 | Batch   80/98 | Loss 0.0054 | X_t   582.3 ms
+12:23:48 [rank 0] INFO  ── Epoch  65 summary  train_loss=0.0215  train_acc=99.37%  test_loss=0.2605  test_acc=93.28%  total_train_time=6824.6s
+12:23:50 [rank 0] INFO  Epoch  66 | Batch    0/98 | Loss 0.0131 | X_t   580.5 ms [SLEEP]
+12:24:19 [rank 0] INFO  Epoch  66 | Batch   20/98 | Loss 0.0205 | X_t   583.4 ms [SLEEP]
+12:24:39 [rank 0] INFO  Epoch  66 | Batch   40/98 | Loss 0.0037 | X_t   582.5 ms
+12:24:50 [rank 0] INFO  Epoch  66 | Batch   60/98 | Loss 0.0068 | X_t   582.5 ms
+12:25:02 [rank 0] INFO  Epoch  66 | Batch   80/98 | Loss 0.0109 | X_t   584.9 ms
+12:25:12 [rank 0] INFO  ── Epoch  66 summary  train_loss=0.0172  train_acc=99.49%  test_loss=0.3074  test_acc=91.92%  total_train_time=6908.3s
+12:25:13 [rank 0] INFO  Epoch  67 | Batch    0/98 | Loss 0.0071 | X_t   581.6 ms
+12:25:25 [rank 0] INFO  Epoch  67 | Batch   20/98 | Loss 0.0247 | X_t   582.9 ms
+12:25:36 [rank 0] INFO  Epoch  67 | Batch   40/98 | Loss 0.0197 | X_t   582.5 ms
+12:25:48 [rank 0] INFO  Epoch  67 | Batch   60/98 | Loss 0.0068 | X_t   582.2 ms
+12:26:00 [rank 0] INFO  Epoch  67 | Batch   80/98 | Loss 0.0070 | X_t   582.7 ms
+12:26:10 [rank 0] INFO  ── Epoch  67 summary  train_loss=0.0156  train_acc=99.62%  test_loss=0.2724  test_acc=93.32%  total_train_time=6965.6s
+12:26:10 [rank 0] INFO  Epoch  68 | Batch    0/98 | Loss 0.0062 | X_t   582.7 ms
+12:26:31 [rank 0] INFO  Epoch  68 | Batch   20/98 | Loss 0.0041 | X_t   582.3 ms
+12:26:51 [rank 0] INFO  Epoch  68 | Batch   40/98 | Loss 0.0228 | X_t   582.3 ms
+12:27:03 [rank 0] INFO  Epoch  68 | Batch   60/98 | Loss 0.0029 | X_t   582.6 ms
+12:27:15 [rank 0] INFO  Epoch  68 | Batch   80/98 | Loss 0.0044 | X_t   583.4 ms
+12:27:25 [rank 0] INFO  ── Epoch  68 summary  train_loss=0.0113  train_acc=99.71%  test_loss=0.2605  test_acc=93.40%  total_train_time=7040.4s
+12:27:25 [rank 0] INFO  Epoch  69 | Batch    0/98 | Loss 0.0073 | X_t   582.3 ms
+12:27:37 [rank 0] INFO  Epoch  69 | Batch   20/98 | Loss 0.0200 | X_t   584.9 ms
+12:27:49 [rank 0] INFO  Epoch  69 | Batch   40/98 | Loss 0.0027 | X_t   582.4 ms
+12:28:00 [rank 0] INFO  Epoch  69 | Batch   60/98 | Loss 0.0076 | X_t   582.3 ms
+12:28:12 [rank 0] INFO  Epoch  69 | Batch   80/98 | Loss 0.0064 | X_t   583.2 ms
+12:28:22 [rank 0] INFO  ── Epoch  69 summary  train_loss=0.0105  train_acc=99.74%  test_loss=0.2470  test_acc=93.84%  total_train_time=7097.7s
+12:28:23 [rank 0] INFO  Epoch  70 | Batch    0/98 | Loss 0.0068 | X_t   582.1 ms
+12:28:35 [rank 0] INFO  Epoch  70 | Batch   20/98 | Loss 0.0018 | X_t   583.0 ms
+12:28:55 [rank 0] INFO  Epoch  70 | Batch   40/98 | Loss 0.0083 | X_t   582.4 ms
+12:29:07 [rank 0] INFO  Epoch  70 | Batch   60/98 | Loss 0.0026 | X_t   592.6 ms
+12:29:18 [rank 0] INFO  Epoch  70 | Batch   80/98 | Loss 0.0020 | X_t   582.4 ms
+12:29:36 [rank 0] INFO  ── Epoch  70 summary  train_loss=0.0077  train_acc=99.82%  test_loss=0.2651  test_acc=93.72%  total_train_time=7170.8s
+12:29:37 [rank 0] INFO  Epoch  71 | Batch    0/98 | Loss 0.0113 | X_t   580.3 ms [SLEEP]
+12:30:06 [rank 0] INFO  Epoch  71 | Batch   20/98 | Loss 0.0061 | X_t   584.2 ms [SLEEP]
+12:30:36 [rank 0] INFO  Epoch  71 | Batch   40/98 | Loss 0.0134 | X_t   583.1 ms [SLEEP]
+12:30:56 [rank 0] INFO  Epoch  71 | Batch   60/98 | Loss 0.0015 | X_t   582.7 ms [SLEEP]
+12:31:25 [rank 0] INFO  Epoch  71 | Batch   80/98 | Loss 0.0009 | X_t   582.6 ms [SLEEP]
+12:31:50 [rank 0] INFO  ── Epoch  71 summary  train_loss=0.0072  train_acc=99.86%  test_loss=0.2625  test_acc=93.60%  total_train_time=7305.4s
+12:31:51 [rank 0] INFO  Epoch  72 | Batch    0/98 | Loss 0.0206 | X_t   581.1 ms
+12:32:03 [rank 0] INFO  Epoch  72 | Batch   20/98 | Loss 0.0077 | X_t   583.0 ms
+12:32:14 [rank 0] INFO  Epoch  72 | Batch   40/98 | Loss 0.0041 | X_t   582.6 ms
+12:32:26 [rank 0] INFO  Epoch  72 | Batch   60/98 | Loss 0.0032 | X_t   582.2 ms
+12:32:39 [rank 0] INFO  Epoch  72 | Batch   80/98 | Loss 0.0039 | X_t   584.8 ms [SLEEP]
+12:33:04 [rank 0] INFO  ── Epoch  72 summary  train_loss=0.0071  train_acc=99.83%  test_loss=0.2474  test_acc=93.72%  total_train_time=7378.4s
+12:33:05 [rank 0] INFO  Epoch  73 | Batch    0/98 | Loss 0.0037 | X_t   580.5 ms [SLEEP]
+12:33:34 [rank 0] INFO  Epoch  73 | Batch   20/98 | Loss 0.0029 | X_t   588.2 ms [SLEEP]
+12:33:54 [rank 0] INFO  Epoch  73 | Batch   40/98 | Loss 0.0057 | X_t   582.2 ms
+12:34:06 [rank 0] INFO  Epoch  73 | Batch   60/98 | Loss 0.0062 | X_t   583.9 ms
+12:34:27 [rank 0] INFO  Epoch  73 | Batch   80/98 | Loss 0.0024 | X_t   582.9 ms [SLEEP]
+12:34:52 [rank 0] INFO  ── Epoch  73 summary  train_loss=0.0060  train_acc=99.85%  test_loss=0.2511  test_acc=93.72%  total_train_time=7486.6s
+12:34:53 [rank 0] INFO  Epoch  74 | Batch    0/98 | Loss 0.0028 | X_t   581.2 ms [SLEEP]
+12:35:23 [rank 0] INFO  Epoch  74 | Batch   20/98 | Loss 0.0033 | X_t   592.2 ms [SLEEP]
+12:35:52 [rank 0] INFO  Epoch  74 | Batch   40/98 | Loss 0.0023 | X_t   583.7 ms [SLEEP]
+12:36:21 [rank 0] INFO  Epoch  74 | Batch   60/98 | Loss 0.0016 | X_t   583.5 ms [SLEEP]
+12:36:50 [rank 0] INFO  Epoch  74 | Batch   80/98 | Loss 0.0027 | X_t   583.3 ms [SLEEP]
+12:37:15 [rank 0] INFO  ── Epoch  74 summary  train_loss=0.0054  train_acc=99.90%  test_loss=0.2503  test_acc=93.92%  total_train_time=7630.0s
+12:37:17 [rank 0] INFO  Epoch  75 | Batch    0/98 | Loss 0.0015 | X_t   580.8 ms [SLEEP]
+12:37:46 [rank 0] INFO  Epoch  75 | Batch   20/98 | Loss 0.0029 | X_t   583.6 ms [SLEEP]
+12:38:15 [rank 0] INFO  Epoch  75 | Batch   40/98 | Loss 0.0024 | X_t   584.5 ms [SLEEP]
+12:38:45 [rank 0] INFO  Epoch  75 | Batch   60/98 | Loss 0.0032 | X_t   583.3 ms [SLEEP]
+12:39:13 [rank 0] INFO  Epoch  75 | Batch   80/98 | Loss 0.0013 | X_t   582.4 ms
+12:39:23 [rank 0] INFO  ── Epoch  75 summary  train_loss=0.0046  train_acc=99.90%  test_loss=0.2497  test_acc=93.88%  total_train_time=7757.5s
+12:39:24 [rank 0] INFO  Epoch  76 | Batch    0/98 | Loss 0.0058 | X_t   582.9 ms
+12:39:35 [rank 0] INFO  Epoch  76 | Batch   20/98 | Loss 0.0018 | X_t   582.3 ms
+12:39:47 [rank 0] INFO  Epoch  76 | Batch   40/98 | Loss 0.0043 | X_t   585.9 ms
+12:39:59 [rank 0] INFO  Epoch  76 | Batch   60/98 | Loss 0.0027 | X_t   582.2 ms
+12:40:11 [rank 0] INFO  Epoch  76 | Batch   80/98 | Loss 0.0235 | X_t   588.9 ms [SLEEP]
+12:40:36 [rank 0] INFO  ── Epoch  76 summary  train_loss=0.0038  train_acc=99.94%  test_loss=0.2321  test_acc=94.48%  total_train_time=7830.6s
+12:40:38 [rank 0] INFO  Epoch  77 | Batch    0/98 | Loss 0.0025 | X_t   580.7 ms [SLEEP]
+12:41:06 [rank 0] INFO  Epoch  77 | Batch   20/98 | Loss 0.0011 | X_t   584.6 ms
+12:41:18 [rank 0] INFO  Epoch  77 | Batch   40/98 | Loss 0.0016 | X_t   582.3 ms
+12:41:39 [rank 0] INFO  Epoch  77 | Batch   60/98 | Loss 0.0023 | X_t   583.0 ms [SLEEP]
+12:42:09 [rank 0] INFO  Epoch  77 | Batch   80/98 | Loss 0.0023 | X_t   582.8 ms [SLEEP]
+12:42:27 [rank 0] INFO  ── Epoch  77 summary  train_loss=0.0034  train_acc=99.94%  test_loss=0.2290  test_acc=94.44%  total_train_time=7940.6s
+12:42:27 [rank 0] INFO  Epoch  78 | Batch    0/98 | Loss 0.0039 | X_t   583.0 ms
+12:42:39 [rank 0] INFO  Epoch  78 | Batch   20/98 | Loss 0.0053 | X_t   582.3 ms
+12:42:51 [rank 0] INFO  Epoch  78 | Batch   40/98 | Loss 0.0018 | X_t   582.3 ms
+12:43:02 [rank 0] INFO  Epoch  78 | Batch   60/98 | Loss 0.0021 | X_t   586.1 ms
+12:43:14 [rank 0] INFO  Epoch  78 | Batch   80/98 | Loss 0.0058 | X_t   582.2 ms
+12:43:24 [rank 0] INFO  ── Epoch  78 summary  train_loss=0.0029  train_acc=99.97%  test_loss=0.2383  test_acc=94.52%  total_train_time=7997.9s
+12:43:25 [rank 0] INFO  Epoch  79 | Batch    0/98 | Loss 0.0014 | X_t   581.1 ms
+12:43:36 [rank 0] INFO  Epoch  79 | Batch   20/98 | Loss 0.0010 | X_t   588.2 ms
+12:43:48 [rank 0] INFO  Epoch  79 | Batch   40/98 | Loss 0.0015 | X_t   583.5 ms
+12:44:00 [rank 0] INFO  Epoch  79 | Batch   60/98 | Loss 0.0020 | X_t   582.5 ms
+12:44:12 [rank 0] INFO  Epoch  79 | Batch   80/98 | Loss 0.0071 | X_t   588.6 ms
+12:44:22 [rank 0] INFO  ── Epoch  79 summary  train_loss=0.0024  train_acc=99.98%  test_loss=0.2293  test_acc=94.68%  total_train_time=8055.2s
+12:44:22 [rank 0] INFO  Epoch  80 | Batch    0/98 | Loss 0.0074 | X_t   581.8 ms
+12:44:34 [rank 0] INFO  Epoch  80 | Batch   20/98 | Loss 0.0012 | X_t   582.4 ms
+12:44:46 [rank 0] INFO  Epoch  80 | Batch   40/98 | Loss 0.0018 | X_t   582.3 ms
+12:45:07 [rank 0] INFO  Epoch  80 | Batch   60/98 | Loss 0.0014 | X_t   583.0 ms [SLEEP]
+12:45:36 [rank 0] INFO  Epoch  80 | Batch   80/98 | Loss 0.0018 | X_t   583.0 ms [SLEEP]
+12:46:01 [rank 0] INFO  ── Epoch  80 summary  train_loss=0.0021  train_acc=99.98%  test_loss=0.2303  test_acc=94.52%  total_train_time=8154.5s
+12:46:03 [rank 0] INFO  Epoch  81 | Batch    0/98 | Loss 0.0027 | X_t   581.0 ms [SLEEP]
+12:46:31 [rank 0] INFO  Epoch  81 | Batch   20/98 | Loss 0.0014 | X_t   582.7 ms
+12:46:43 [rank 0] INFO  Epoch  81 | Batch   40/98 | Loss 0.0010 | X_t   584.1 ms
+12:46:54 [rank 0] INFO  Epoch  81 | Batch   60/98 | Loss 0.0058 | X_t   585.3 ms
+12:47:16 [rank 0] INFO  Epoch  81 | Batch   80/98 | Loss 0.0009 | X_t   583.9 ms [SLEEP]
+12:47:41 [rank 0] INFO  ── Epoch  81 summary  train_loss=0.0026  train_acc=99.98%  test_loss=0.2280  test_acc=94.40%  total_train_time=8254.0s
+12:47:42 [rank 0] INFO  Epoch  82 | Batch    0/98 | Loss 0.0017 | X_t   581.5 ms [SLEEP]
+12:48:12 [rank 0] INFO  Epoch  82 | Batch   20/98 | Loss 0.0038 | X_t   589.5 ms [SLEEP]
+12:48:41 [rank 0] INFO  Epoch  82 | Batch   40/98 | Loss 0.0015 | X_t   583.0 ms [SLEEP]
+12:49:09 [rank 0] INFO  Epoch  82 | Batch   60/98 | Loss 0.0042 | X_t   582.2 ms
+12:49:21 [rank 0] INFO  Epoch  82 | Batch   80/98 | Loss 0.0011 | X_t   582.3 ms
+12:49:31 [rank 0] INFO  ── Epoch  82 summary  train_loss=0.0022  train_acc=99.98%  test_loss=0.2267  test_acc=94.44%  total_train_time=8363.9s
+12:49:32 [rank 0] INFO  Epoch  83 | Batch    0/98 | Loss 0.0013 | X_t   589.6 ms
+12:49:43 [rank 0] INFO  Epoch  83 | Batch   20/98 | Loss 0.0011 | X_t   582.6 ms
+12:49:55 [rank 0] INFO  Epoch  83 | Batch   40/98 | Loss 0.0016 | X_t   582.2 ms
+12:50:07 [rank 0] INFO  Epoch  83 | Batch   60/98 | Loss 0.0027 | X_t   591.8 ms
+12:50:28 [rank 0] INFO  Epoch  83 | Batch   80/98 | Loss 0.0012 | X_t   586.2 ms [SLEEP]
+12:50:53 [rank 0] INFO  ── Epoch  83 summary  train_loss=0.0017  train_acc=99.99%  test_loss=0.2297  test_acc=94.56%  total_train_time=8445.8s
+12:50:55 [rank 0] INFO  Epoch  84 | Batch    0/98 | Loss 0.0010 | X_t   581.1 ms [SLEEP]
+12:51:24 [rank 0] INFO  Epoch  84 | Batch   20/98 | Loss 0.0012 | X_t   584.5 ms [SLEEP]
+12:51:53 [rank 0] INFO  Epoch  84 | Batch   40/98 | Loss 0.0012 | X_t   587.4 ms [SLEEP]
+12:52:22 [rank 0] INFO  Epoch  84 | Batch   60/98 | Loss 0.0013 | X_t   583.5 ms [SLEEP]
+12:52:52 [rank 0] INFO  Epoch  84 | Batch   80/98 | Loss 0.0031 | X_t   588.1 ms [SLEEP]
+12:53:17 [rank 0] INFO  ── Epoch  84 summary  train_loss=0.0019  train_acc=99.98%  test_loss=0.2272  test_acc=94.60%  total_train_time=8589.2s
+12:53:18 [rank 0] INFO  Epoch  85 | Batch    0/98 | Loss 0.0017 | X_t   580.8 ms [SLEEP]
+12:53:39 [rank 0] INFO  Epoch  85 | Batch   20/98 | Loss 0.0014 | X_t   583.6 ms [SLEEP]
+12:54:08 [rank 0] INFO  Epoch  85 | Batch   40/98 | Loss 0.0011 | X_t   597.3 ms [SLEEP]
+12:54:37 [rank 0] INFO  Epoch  85 | Batch   60/98 | Loss 0.0027 | X_t   582.8 ms [SLEEP]
+12:55:05 [rank 0] INFO  Epoch  85 | Batch   80/98 | Loss 0.0017 | X_t   582.3 ms
+12:55:16 [rank 0] INFO  ── Epoch  85 summary  train_loss=0.0022  train_acc=99.99%  test_loss=0.2226  test_acc=94.80%  total_train_time=8707.9s
+12:55:16 [rank 0] INFO  Epoch  86 | Batch    0/98 | Loss 0.0013 | X_t   582.0 ms
+12:55:28 [rank 0] INFO  Epoch  86 | Batch   20/98 | Loss 0.0007 | X_t   582.3 ms
+12:55:40 [rank 0] INFO  Epoch  86 | Batch   40/98 | Loss 0.0016 | X_t   584.8 ms [SLEEP]
+12:56:10 [rank 0] INFO  Epoch  86 | Batch   60/98 | Loss 0.0013 | X_t   583.1 ms [SLEEP]
+12:56:38 [rank 0] INFO  Epoch  86 | Batch   80/98 | Loss 0.0014 | X_t   582.3 ms
+12:56:48 [rank 0] INFO  ── Epoch  86 summary  train_loss=0.0019  train_acc=100.00%  test_loss=0.2211  test_acc=94.68%  total_train_time=8800.2s
+12:56:49 [rank 0] INFO  Epoch  87 | Batch    0/98 | Loss 0.0025 | X_t   581.1 ms
+12:57:01 [rank 0] INFO  Epoch  87 | Batch   20/98 | Loss 0.0021 | X_t   586.8 ms [SLEEP]
+12:57:21 [rank 0] INFO  Epoch  87 | Batch   40/98 | Loss 0.0016 | X_t   582.2 ms
+12:57:33 [rank 0] INFO  Epoch  87 | Batch   60/98 | Loss 0.0027 | X_t   586.5 ms
+12:57:45 [rank 0] INFO  Epoch  87 | Batch   80/98 | Loss 0.0009 | X_t   582.8 ms [SLEEP]
+12:58:10 [rank 0] INFO  ── Epoch  87 summary  train_loss=0.0021  train_acc=99.98%  test_loss=0.2213  test_acc=94.44%  total_train_time=8882.1s
+12:58:12 [rank 0] INFO  Epoch  88 | Batch    0/98 | Loss 0.0027 | X_t   585.3 ms [SLEEP]
+12:58:40 [rank 0] INFO  Epoch  88 | Batch   20/98 | Loss 0.0026 | X_t   582.4 ms
+12:58:52 [rank 0] INFO  Epoch  88 | Batch   40/98 | Loss 0.0010 | X_t   591.5 ms
+12:59:04 [rank 0] INFO  Epoch  88 | Batch   60/98 | Loss 0.0019 | X_t   583.1 ms [SLEEP]
+12:59:33 [rank 0] INFO  Epoch  88 | Batch   80/98 | Loss 0.0018 | X_t   584.3 ms [SLEEP]
+12:59:59 [rank 0] INFO  ── Epoch  88 summary  train_loss=0.0016  train_acc=99.99%  test_loss=0.2178  test_acc=94.80%  total_train_time=8990.3s
+13:00:00 [rank 0] INFO  Epoch  89 | Batch    0/98 | Loss 0.0013 | X_t   581.1 ms [SLEEP]
+13:00:29 [rank 0] INFO  Epoch  89 | Batch   20/98 | Loss 0.0009 | X_t   585.2 ms [SLEEP]
+13:00:58 [rank 0] INFO  Epoch  89 | Batch   40/98 | Loss 0.0010 | X_t   582.3 ms
+13:01:09 [rank 0] INFO  Epoch  89 | Batch   60/98 | Loss 0.0014 | X_t   583.8 ms
+13:01:21 [rank 0] INFO  Epoch  89 | Batch   80/98 | Loss 0.0011 | X_t   582.3 ms
+13:01:31 [rank 0] INFO  ── Epoch  89 summary  train_loss=0.0018  train_acc=99.98%  test_loss=0.2207  test_acc=94.88%  total_train_time=9082.7s
+13:01:32 [rank 0] INFO  Epoch  90 | Batch    0/98 | Loss 0.0010 | X_t   582.0 ms
+13:01:43 [rank 0] INFO  Epoch  90 | Batch   20/98 | Loss 0.0009 | X_t   582.4 ms
+13:01:55 [rank 0] INFO  Epoch  90 | Batch   40/98 | Loss 0.0019 | X_t   582.2 ms
+13:02:07 [rank 0] INFO  Epoch  90 | Batch   60/98 | Loss 0.0010 | X_t   592.1 ms
+13:02:19 [rank 0] INFO  Epoch  90 | Batch   80/98 | Loss 0.0034 | X_t   584.0 ms [SLEEP]
+13:02:44 [rank 0] INFO  ── Epoch  90 summary  train_loss=0.0017  train_acc=99.99%  test_loss=0.2222  test_acc=94.84%  total_train_time=9155.7s
+13:02:46 [rank 0] INFO  Epoch  91 | Batch    0/98 | Loss 0.0029 | X_t   581.2 ms [SLEEP]
+13:03:15 [rank 0] INFO  Epoch  91 | Batch   20/98 | Loss 0.0008 | X_t   583.6 ms [SLEEP]
+13:03:44 [rank 0] INFO  Epoch  91 | Batch   40/98 | Loss 0.0011 | X_t   587.6 ms [SLEEP]
+13:04:14 [rank 0] INFO  Epoch  91 | Batch   60/98 | Loss 0.0010 | X_t   583.0 ms [SLEEP]
+13:04:43 [rank 0] INFO  Epoch  91 | Batch   80/98 | Loss 0.0071 | X_t   584.3 ms [SLEEP]
+13:05:08 [rank 0] INFO  ── Epoch  91 summary  train_loss=0.0016  train_acc=99.99%  test_loss=0.2219  test_acc=94.64%  total_train_time=9299.1s
+13:05:09 [rank 0] INFO  Epoch  92 | Batch    0/98 | Loss 0.0013 | X_t   580.1 ms [SLEEP]
+13:05:39 [rank 0] INFO  Epoch  92 | Batch   20/98 | Loss 0.0011 | X_t   583.8 ms [SLEEP]
+13:06:08 [rank 0] INFO  Epoch  92 | Batch   40/98 | Loss 0.0015 | X_t   586.5 ms [SLEEP]
+13:06:37 [rank 0] INFO  Epoch  92 | Batch   60/98 | Loss 0.0011 | X_t   583.4 ms [SLEEP]
+13:07:06 [rank 0] INFO  Epoch  92 | Batch   80/98 | Loss 0.0009 | X_t   591.7 ms [SLEEP]
+13:07:24 [rank 0] INFO  ── Epoch  92 summary  train_loss=0.0016  train_acc=99.99%  test_loss=0.2199  test_acc=94.84%  total_train_time=9435.4s
+13:07:25 [rank 0] INFO  Epoch  93 | Batch    0/98 | Loss 0.0010 | X_t   581.7 ms
+13:07:38 [rank 0] INFO  Epoch  93 | Batch   20/98 | Loss 0.0020 | X_t   595.4 ms [SLEEP]
+13:07:57 [rank 0] INFO  Epoch  93 | Batch   40/98 | Loss 0.0052 | X_t   582.2 ms
+13:08:09 [rank 0] INFO  Epoch  93 | Batch   60/98 | Loss 0.0012 | X_t   582.1 ms
+13:08:21 [rank 0] INFO  Epoch  93 | Batch   80/98 | Loss 0.0107 | X_t   582.2 ms
+13:08:31 [rank 0] INFO  ── Epoch  93 summary  train_loss=0.0018  train_acc=99.98%  test_loss=0.2218  test_acc=94.80%  total_train_time=9501.5s
+13:08:31 [rank 0] INFO  Epoch  94 | Batch    0/98 | Loss 0.0029 | X_t   582.6 ms
+13:08:43 [rank 0] INFO  Epoch  94 | Batch   20/98 | Loss 0.0007 | X_t   582.2 ms
+13:08:55 [rank 0] INFO  Epoch  94 | Batch   40/98 | Loss 0.0014 | X_t   583.0 ms
+13:09:16 [rank 0] INFO  Epoch  94 | Batch   60/98 | Loss 0.0009 | X_t   582.8 ms [SLEEP]
+13:09:36 [rank 0] INFO  Epoch  94 | Batch   80/98 | Loss 0.0014 | X_t   582.3 ms
+13:09:46 [rank 0] INFO  ── Epoch  94 summary  train_loss=0.0016  train_acc=100.00%  test_loss=0.2174  test_acc=94.84%  total_train_time=9576.3s
+13:09:46 [rank 0] INFO  Epoch  95 | Batch    0/98 | Loss 0.0011 | X_t   582.6 ms
+13:09:58 [rank 0] INFO  Epoch  95 | Batch   20/98 | Loss 0.0012 | X_t   582.2 ms
+13:10:10 [rank 0] INFO  Epoch  95 | Batch   40/98 | Loss 0.0009 | X_t   583.0 ms
+13:10:22 [rank 0] INFO  Epoch  95 | Batch   60/98 | Loss 0.0019 | X_t   583.1 ms [SLEEP]
+13:10:52 [rank 0] INFO  Epoch  95 | Batch   80/98 | Loss 0.0012 | X_t   588.5 ms [SLEEP]
+13:11:17 [rank 0] INFO  ── Epoch  95 summary  train_loss=0.0013  train_acc=100.00%  test_loss=0.2209  test_acc=94.84%  total_train_time=9666.9s
+13:11:18 [rank 0] INFO  Epoch  96 | Batch    0/98 | Loss 0.0012 | X_t   581.2 ms [SLEEP]
+13:11:47 [rank 0] INFO  Epoch  96 | Batch   20/98 | Loss 0.0010 | X_t   584.2 ms [SLEEP]
+13:12:16 [rank 0] INFO  Epoch  96 | Batch   40/98 | Loss 0.0012 | X_t   583.6 ms
+13:12:28 [rank 0] INFO  Epoch  96 | Batch   60/98 | Loss 0.0010 | X_t   583.8 ms [SLEEP]
+13:12:57 [rank 0] INFO  Epoch  96 | Batch   80/98 | Loss 0.0013 | X_t   583.1 ms [SLEEP]
+13:13:22 [rank 0] INFO  ── Epoch  96 summary  train_loss=0.0015  train_acc=99.99%  test_loss=0.2222  test_acc=94.68%  total_train_time=9792.7s
+13:13:24 [rank 0] INFO  Epoch  97 | Batch    0/98 | Loss 0.0023 | X_t   582.0 ms [SLEEP]
+13:13:44 [rank 0] INFO  Epoch  97 | Batch   20/98 | Loss 0.0011 | X_t   582.4 ms
+13:13:55 [rank 0] INFO  Epoch  97 | Batch   40/98 | Loss 0.0015 | X_t   582.3 ms
+13:14:08 [rank 0] INFO  Epoch  97 | Batch   60/98 | Loss 0.0009 | X_t   594.2 ms [SLEEP]
+13:14:37 [rank 0] INFO  Epoch  97 | Batch   80/98 | Loss 0.0008 | X_t   582.9 ms [SLEEP]
+13:15:02 [rank 0] INFO  ── Epoch  97 summary  train_loss=0.0019  train_acc=99.98%  test_loss=0.2214  test_acc=94.88%  total_train_time=9892.1s
+13:15:03 [rank 0] INFO  Epoch  98 | Batch    0/98 | Loss 0.0018 | X_t   581.8 ms
+13:15:15 [rank 0] INFO  Epoch  98 | Batch   20/98 | Loss 0.0021 | X_t   587.3 ms [SLEEP]
+13:15:45 [rank 0] INFO  Epoch  98 | Batch   40/98 | Loss 0.0008 | X_t   582.6 ms [SLEEP]
+13:16:14 [rank 0] INFO  Epoch  98 | Batch   60/98 | Loss 0.0019 | X_t   582.8 ms [SLEEP]
+13:16:43 [rank 0] INFO  Epoch  98 | Batch   80/98 | Loss 0.0060 | X_t   587.2 ms [SLEEP]
+13:17:01 [rank 0] INFO  ── Epoch  98 summary  train_loss=0.0016  train_acc=99.98%  test_loss=0.2246  test_acc=94.76%  total_train_time=10010.9s
+13:17:02 [rank 0] INFO  Epoch  99 | Batch    0/98 | Loss 0.0016 | X_t   582.1 ms
+13:17:23 [rank 0] INFO  Epoch  99 | Batch   20/98 | Loss 0.0015 | X_t   585.5 ms [SLEEP]
+13:17:52 [rank 0] INFO  Epoch  99 | Batch   40/98 | Loss 0.0009 | X_t   583.9 ms [SLEEP]
+13:18:12 [rank 0] INFO  Epoch  99 | Batch   60/98 | Loss 0.0015 | X_t   592.6 ms
+13:18:24 [rank 0] INFO  Epoch  99 | Batch   80/98 | Loss 0.0007 | X_t   582.4 ms
+13:18:34 [rank 0] INFO  ── Epoch  99 summary  train_loss=0.0021  train_acc=99.97%  test_loss=0.2192  test_acc=94.92%  total_train_time=10103.3s

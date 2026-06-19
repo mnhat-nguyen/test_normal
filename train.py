@@ -200,10 +200,6 @@ def train_step(
         x_t = (time.perf_counter() - t_start) * 1000.0
         return float('nan'), outputs, x_t, True
 
-    # ── Fix 3: Gradient clipping ──────────────────────────────────────────────
-    # Caps gradient norm before optimizer.step() to prevent late-epoch
-    # overflow where weights have grown large enough for FP16 to overflow.
-    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
     # ── Optimizer step ────────────────────────────────────────────────────────
     if amp_active:
