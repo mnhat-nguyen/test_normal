@@ -1,71 +1,42 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 """
-train.py  –  entry point for both single-process testing and torchrun
-======================================================================
+train.py  –  DDP training with EWMA-MAD straggler mitigation + GSCM
+=====================================================================
 Single-process test (1 machine, 1 GPU):
     python train.py
 
-4-node distributed (run on EACH of the 4 machines via torchrun):
-    torchrun \
-        --nproc_per_node=1 \
-        --nnodes=4 \
-        --node_rank=<0|1|2|3> \
-        --master_addr=<IP of node-0> \
-        --master_port=29500 \
-        --rdzv_backend=c10d \
-        --rdzv_endpoint=<IP of node-0>:29500 \
+4-node distributed (run on EACH of the 4 machines):
+    torchrun \\
+        --nproc_per_node=1 \\
+        --nnodes=4 \\
+        --node_rank=<0|1|2|3> \\
+        --master_addr=<IP of node-0> \\
+        --master_port=29500 \\
         train.py
-
-Gradient synchronisation:
-    PyTorch DDP uses NCCL backend, which implements Ring AllReduce
-    for gradient averaging. Each of the 4 nodes holds 1 GPU, so
-    WORLD_SIZE=4. The ring passes gradient chunks around 4 nodes
-    in 2*(N-1) = 6 steps total (scatter-reduce + allgather).
 
 torchrun sets RANK, LOCAL_RANK, WORLD_SIZE automatically.
 When run directly with python, those env vars are absent and
 default to 0 / 0 / 1, so all distributed code is bypassed.
-
-NaN fix summary
----------------
-Three problems caused NaN loss in late epochs when AMP activates:
-
-  1. Pre-backward loss check (sync across workers)
-     If ANY worker has a non-finite loss after the forward pass, ALL
-     workers skip backward. Without this, one worker with NaN loss
-     still participates in DDP allreduce, spreading NaN to everyone.
-
-  2. Post-unscale overflow sync (sync across workers)
-     After unscaling gradients, if ANY worker has Inf/NaN gradients,
-     ALL workers skip optimizer.step(). Without this, AMP workers
-     skip silently while Normal workers still update, causing divergence.
-
-  3. Gradient clipping
-     Caps gradient norm before optimizer.step() to prevent late-epoch
-     overflow where weights have grown large enough to push FP16 over
-     its 65504 limit.
-
-  4. Reduced GradScaler init_scale
-     Default 65536 starts at the FP16 overflow boundary. Starting at
-     256 gives the scaler room to grow safely over time.
 """
 
 import os
-import datetime
 import time
 import json
+import datetime
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.amp import GradScaler, autocast
 
-from config              import TrainConfig
-from models              import get_model
-from data                import get_dataloaders
-from straggler           import StraglerDetector, GSCM
-from straggler.evaluator import DetectionEvaluator
-from sleep_injector      import SleepInjector
-from utils               import get_logger
+from config          import TrainConfig
+from models          import get_model
+from data            import get_dataloaders
+from straggler       import StraglerDetector, GSCM, DetectionEvaluator
+from sleep_injector  import SleepInjector
+from utils           import get_logger
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -73,44 +44,21 @@ from utils               import get_logger
 # ──────────────────────────────────────────────────────────────────────────────
 
 def setup(rank: int, world_size: int, config: TrainConfig) -> None:
-    torch.cuda.set_device(0)   # 1 GPU per node → always cuda:0
-
+    torch.cuda.set_device(0)
     if world_size > 1:
         os.environ.setdefault('MASTER_ADDR', config.master_addr)
         os.environ.setdefault('MASTER_PORT', config.master_port)
-        os.environ.setdefault('NCCL_ASYNC_ERROR_HANDLING', '1')
-
         dist.init_process_group(
-            backend    = config.backend,
-            init_method= 'env://',
-            rank       = rank,
-            world_size = world_size,
-            timeout    = datetime.timedelta(seconds=config.dist_timeout),
+            backend=config.backend,
+            rank=rank,
+            world_size=world_size,
+            timeout=datetime.timedelta(minutes=120),
         )
-        _warmup = torch.zeros(1, device='cuda:0')
-        dist.all_reduce(_warmup, op=dist.ReduceOp.SUM)
-        dist.barrier()
 
 
 def cleanup(world_size: int) -> None:
-    if world_size > 1 and dist.is_initialized():
-        dist.destroy_process_group()
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Shared sync helper
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _any_worker_flag(flag: bool, device: torch.device, world_size: int) -> bool:
-    """
-    Return True if ANY worker passes flag=True.
-    Uses all_reduce(MAX) so all workers reach the same decision.
-    Falls back gracefully when not distributed.
-    """
-    t = torch.tensor([1.0 if flag else 0.0], device=device)
     if world_size > 1:
-        dist.all_reduce(t, op=dist.ReduceOp.MAX)
-    return t.item() > 0.0
+        dist.destroy_process_group()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -127,79 +75,60 @@ def train_step(
     gscm:         GSCM,
     amp_active:   bool,
     device:       torch.device,
-    world_size:   int,
 ):
     """
-    Execute one full batch iteration.
+    Execute one full batch iteration and return (loss_value, outputs, X_t).
+
+    X_t is the wall-clock time (ms) for the complete step:
+        forward  +  backward (incl. DDP allreduce)  +  optimizer step
+
+    The GSCM scale sync happens BEFORE the timer starts so that
+    communication overhead does not inflate X_t measurements.
 
     Returns
     -------
-    loss_val : float   (nan when batch is skipped)
-    outputs  : torch.Tensor
-    x_t      : float   (ms; 0.0 when batch is skipped)
-    skipped  : bool    (True when overflow was detected)
+    loss_val : float
+    outputs  : torch.Tensor  (logits, still on device)
+    x_t      : float         (iteration time in ms)
     """
     optimizer.zero_grad()
 
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
+    # All workers call dist.all_reduce here; Normal workers learn the AMP
+    # scale so they can match it.  This is intentionally outside the timer.
     global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
 
     # ── Start timer ───────────────────────────────────────────────────────────
+    # X_t = time for forward + backward (allreduce) + optimizer step
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
-    # ── Forward pass ─────────────────────────────────────────────────────────
+    # ── Forward ───────────────────────────────────────────────────────────────
     if amp_active:
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
+        # GradScaler scales loss by global_scale internally (we aligned it
+        # in sync_scale), so backward produces grads * global_scale
+        scaler.scale(loss).backward()
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-
-    # ── Fix 1: Pre-backward loss validity check (synced across all workers) ──
-    # If ANY worker has a non-finite loss (Inf or NaN from the forward pass),
-    # ALL workers skip backward. This prevents NaN from entering the
-    # computation graph or corrupting DDP allreduce.
-    loss_bad = not torch.isfinite(loss)
-    if _any_worker_flag(loss_bad, device, world_size):
-        optimizer.zero_grad()
-        if amp_active:
-            scaler.update()            # shrink scale for next iteration
-        torch.cuda.synchronize()
-        x_t = (time.perf_counter() - t_start) * 1000.0
-        return float('nan'), outputs, x_t, True
-
-    # ── Backward ──────────────────────────────────────────────────────────────
-    if amp_active:
-        scaler.scale(loss).backward()
-    else:
+        # GSCM: manually match AMP workers' gradient magnitude
+        # If no worker is in AMP mode global_scale == 1.0  →  no-op
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
+        # ↑ DDP allreduce fires inside .backward() via registered hooks.
+        # At this point all workers' gradients are averaged AND still
+        # carry the factor global_scale.
 
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
+        # scaler.unscale_() divides by global_scale (same value we aligned to)
         scaler.unscale_(optimizer)
     else:
+        # Normal workers remove the manual scale factor
         GSCM.unscale_gradients(model, global_scale)
-
-    # ── Fix 2: Post-unscale overflow sync (synced across all workers) ─────────
-    # After unscaling, check if ANY worker has Inf/NaN in gradients.
-    # If so, ALL workers skip optimizer.step() together.
-    # Without this, AMP workers skip silently while Normal workers update,
-    # causing model divergence that produces NaN in future batches.
-    grad_bad = any(
-        p.grad is not None and not torch.isfinite(p.grad).all()
-        for p in model.parameters()
-    )
-    if _any_worker_flag(grad_bad, device, world_size):
-        optimizer.zero_grad()
-        if amp_active:
-            scaler.update()            # shrink scale
-        torch.cuda.synchronize()
-        x_t = (time.perf_counter() - t_start) * 1000.0
-        return float('nan'), outputs, x_t, True
-
 
     # ── Optimizer step ────────────────────────────────────────────────────────
     if amp_active:
@@ -212,7 +141,7 @@ def train_step(
     torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms
 
-    return loss.item(), outputs, x_t, False
+    return loss.item(), outputs, x_t
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -224,46 +153,42 @@ def train_epoch(
     loader,
     optimizer,
     criterion,
-    scaler:     GradScaler,
-    detector:   StraglerDetector,
-    gscm:       GSCM,
-    injector,
-    evaluator:  DetectionEvaluator,
-    device:     torch.device,
-    epoch:      int,
-    config:     TrainConfig,
+    scaler:    GradScaler,
+    detector:  StraglerDetector,
+    gscm:      GSCM,
+    injector,                       # SleepInjector | None
+    evaluator: DetectionEvaluator,
+    device:    torch.device,
+    epoch:     int,
+    config:    TrainConfig,
     logger,
-    world_size: int,
 ):
     model.train()
-    total_loss      = 0.0
-    correct = total = 0
-    n_batches       = len(loader)
-    skipped_batches = 0
-    last_x_t        = 0.0
+    total_loss = correct = total = 0
+    n_batches  = len(loader)
+    last_x_t   = 0.0
 
     for i, (inputs, targets) in enumerate(loader):
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        # Inject artificial sleep BEFORE the timed step
         if injector is not None:
             injector.maybe_sleep(i, last_x_t)
 
+        # Read current mode from detector (set by previous iteration's update)
         amp_active = detector.amp_flag
 
-        loss_val, outputs, x_t, skipped = train_step(
+        loss_val, outputs, x_t = train_step(
             model, inputs, targets,
             optimizer, criterion, scaler,
-            gscm, amp_active, device, world_size,
+            gscm, amp_active, device,
         )
-
-        # Skipped batch: do not update metrics or detector
-        if skipped:
-            skipped_batches += 1
-            continue
-
         last_x_t = x_t
 
+        # ── Detector update ───────────────────────────────────────────────────
+        # Skip first and last batch of each epoch (as in the paper) because
+        # those timings include data-loading warm-up / epoch-boundary effects.
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:
             detector.update(x_t)
@@ -273,11 +198,13 @@ def train_epoch(
                     amp_active=detector.amp_flag,
                 )
 
+        # ── Metrics ───────────────────────────────────────────────────────────
         total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
+        # ── Logging ───────────────────────────────────────────────────────────
         if i % config.log_interval == 0:
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
@@ -291,15 +218,8 @@ def train_epoch(
                 f"{sleep_tag}"
             )
 
-    if skipped_batches > 0:
-        logger.info(
-            f"Epoch {epoch:>3d} | Skipped {skipped_batches}/{n_batches} "
-            f"batches due to overflow"
-        )
-
-    valid_batches = n_batches - skipped_batches
-    avg_loss = total_loss / valid_batches if valid_batches > 0 else float('nan')
-    accuracy = 100.0 * correct / total    if total > 0        else 0.0
+    avg_loss = total_loss / n_batches
+    accuracy = 100.0 * correct / total
     return avg_loss, accuracy
 
 
@@ -337,9 +257,8 @@ def save_checkpoint(state: dict, path: str) -> None:
     torch.save(state, path)
 
 
-def load_checkpoint(path: str, model, optimizer, scheduler,
-                    detector, scaler, world_size: int):
-    ckpt      = torch.load(path, map_location='cpu')
+def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_size):
+    ckpt = torch.load(path, map_location='cpu')
     model_obj = model.module if world_size > 1 else model
     model_obj.load_state_dict(ckpt['model'])
     optimizer.load_state_dict(ckpt['optimizer'])
@@ -353,8 +272,9 @@ def load_checkpoint(path: str, model, optimizer, scheduler,
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
-def main() -> None:
-    config     = TrainConfig()
+def main(config: TrainConfig = None) -> None:
+    if config is None:
+        config = TrainConfig()
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
@@ -364,21 +284,20 @@ def main() -> None:
     device = torch.device('cuda:0')
     logger = get_logger(rank)
 
-    logger.info(
-        f"Worker {rank}/{world_size} ready | device={device} | "
-        f"backend={config.backend} (Ring AllReduce) | "
-        f"master={config.master_addr}:{config.master_port}"
-    )
+    logger.info(f"Worker {rank}/{world_size} ready  |  device={device}")
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model = get_model(config.model_name, config.dataset).to(device)
     if world_size > 1:
-        model = DDP(model, device_ids=[0], find_unused_parameters=False)
+        model = DDP(model, device_ids=[0])
     logger.info(f"Model : {config.model_name}  dataset : {config.dataset}")
 
     # ── Data ──────────────────────────────────────────────────────────────────
     train_loader, test_loader = get_dataloaders(config, rank, world_size)
-    logger.info(f"Train batches: {len(train_loader)}  Test batches: {len(test_loader)}")
+    logger.info(
+        f"Train batches: {len(train_loader)}  "
+        f"Test batches: {len(test_loader)}"
+    )
 
     # ── Optimiser / scheduler ─────────────────────────────────────────────────
     criterion = nn.CrossEntropyLoss()
@@ -398,14 +317,11 @@ def main() -> None:
             optimizer, milestones=list(config.milestones), gamma=config.gamma
         )
 
-    # ── Fix 4: Reduced GradScaler init_scale ──────────────────────────────────
-    # Default 65536 starts right at the FP16 overflow boundary (65504).
-    # Starting at 256 gives the scaler room to grow safely; it increases
-    # automatically every growth_interval steps when no overflow is detected.
-    scaler = GradScaler('cuda', init_scale=256, growth_interval=100)
+    # ── AMP scaler ────────────────────────────────────────────────────────────
+    scaler = GradScaler('cuda')
 
     # ── Straggler detection ───────────────────────────────────────────────────
-    detector  = StraglerDetector(
+    detector = StraglerDetector(
         window_size = config.window_size,
         n_min       = config.n_min,
         k           = config.k,
@@ -414,7 +330,7 @@ def main() -> None:
     gscm      = GSCM(device)
     evaluator = DetectionEvaluator()
 
-    # ── Sleep injector ────────────────────────────────────────────────────────
+    # ── Sleep injector (straggler simulation) ─────────────────────────────────
     injector = SleepInjector(
         prob_on        = config.sleep_prob_on,
         prob_off       = config.sleep_prob_off,
@@ -445,7 +361,7 @@ def main() -> None:
         train_loss, train_acc = train_epoch(
             model, train_loader, optimizer, criterion,
             scaler, detector, gscm, injector, evaluator,
-            device, epoch, config, logger, world_size,
+            device, epoch, config, logger,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
@@ -500,5 +416,53 @@ def main() -> None:
     cleanup(world_size)
 
 
+def parse_args():
+    import argparse
+    from models import list_models
+    parser = argparse.ArgumentParser(description='DDP training with straggler mitigation')
+
+    # model / dataset
+    parser.add_argument('--model_name',   type=str,   help=f'Model name. Choices: {list_models()}')
+    parser.add_argument('--dataset',      type=str,   choices=['cifar10', 'cifar100'])
+    parser.add_argument('--data_root',    type=str)
+
+    # training
+    parser.add_argument('--epochs',       type=int)
+    parser.add_argument('--batch_size',   type=int)
+    parser.add_argument('--lr',           type=float)
+    parser.add_argument('--momentum',     type=float)
+    parser.add_argument('--weight_decay', type=float)
+
+    # scheduler
+    parser.add_argument('--scheduler',    type=str,   choices=['cosine', 'multistep'])
+
+    # detector
+    parser.add_argument('--window_size',  type=int)
+    parser.add_argument('--n_min',        type=int)
+    parser.add_argument('--k',            type=float)
+    parser.add_argument('--ewma_lambda',  type=float)
+
+    # sleep injection
+    parser.add_argument('--inject_sleep',         type=lambda x: x.lower() == 'true')
+    parser.add_argument('--sleep_prob_on',         type=float)
+    parser.add_argument('--sleep_prob_off',        type=float)
+    parser.add_argument('--sleep_check_interval',  type=int)
+    parser.add_argument('--sleep_duration_ratio',  type=float)
+    parser.add_argument('--sleep_seed',            type=int)
+
+    # logging
+    parser.add_argument('--log_interval',   type=int)
+    parser.add_argument('--checkpoint_dir', type=str)
+    parser.add_argument('--results_dir',    type=str)
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    config = TrainConfig()
+    # Override config with any CLI args that were explicitly provided
+    for key, val in vars(args).items():
+        if val is not None and hasattr(config, key):
+            setattr(config, key, val)
+    main(config)
