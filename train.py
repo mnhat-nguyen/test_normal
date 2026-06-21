@@ -8,12 +8,12 @@ Single-process test (1 machine, 1 GPU):
     python train.py
 
 4-node distributed (run on EACH of the 4 machines):
-    torchrun \\
-        --nproc_per_node=1 \\
-        --nnodes=4 \\
-        --node_rank=<0|1|2|3> \\
-        --master_addr=<IP of node-0> \\
-        --master_port=29500 \\
+    torchrun \
+        --nproc_per_node=1 \
+        --nnodes=4 \
+        --node_rank=<0|1|2|3> \
+        --master_addr=<IP of node-0> \
+        --master_port=29500 \
         train.py
 
 torchrun sets RANK, LOCAL_RANK, WORLD_SIZE automatically.
@@ -34,7 +34,7 @@ from torch.amp import GradScaler, autocast
 from config          import TrainConfig
 from models          import get_model
 from data            import get_dataloaders
-from straggler       import StraglerDetector, GSCM, DetectionEvaluator
+from straggler       import StraglerDetector, GSCM
 from sleep_injector  import SleepInjector
 from utils           import get_logger
 
@@ -94,12 +94,9 @@ def train_step(
     optimizer.zero_grad()
 
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
-    # All workers call dist.all_reduce here; Normal workers learn the AMP
-    # scale so they can match it.  This is intentionally outside the timer.
     global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
 
     # ── Start timer ───────────────────────────────────────────────────────────
-    # X_t = time for forward + backward (allreduce) + optimizer step
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
@@ -108,26 +105,17 @@ def train_step(
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
-        # GradScaler scales loss by global_scale internally (we aligned it
-        # in sync_scale), so backward produces grads * global_scale
         scaler.scale(loss).backward()
     else:
-        outputs = model(inputs)
-        loss    = criterion(outputs, targets)
-        # GSCM: manually match AMP workers' gradient magnitude
-        # If no worker is in AMP mode global_scale == 1.0  →  no-op
+        outputs     = model(inputs)
+        loss        = criterion(outputs, targets)
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-        # ↑ DDP allreduce fires inside .backward() via registered hooks.
-        # At this point all workers' gradients are averaged AND still
-        # carry the factor global_scale.
 
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
-        # scaler.unscale_() divides by global_scale (same value we aligned to)
         scaler.unscale_(optimizer)
     else:
-        # Normal workers remove the manual scale factor
         GSCM.unscale_gradients(model, global_scale)
 
     # ── Optimizer step ────────────────────────────────────────────────────────
@@ -157,7 +145,6 @@ def train_epoch(
     detector:  StraglerDetector,
     gscm:      GSCM,
     injector,                       # SleepInjector | None
-    evaluator: DetectionEvaluator,
     device:    torch.device,
     epoch:     int,
     config:    TrainConfig,
@@ -172,11 +159,9 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        # Inject artificial sleep BEFORE the timed step
         if injector is not None:
             injector.maybe_sleep(i, last_x_t)
 
-        # Read current mode from detector (set by previous iteration's update)
         amp_active = detector.amp_flag
 
         loss_val, outputs, x_t = train_step(
@@ -186,25 +171,15 @@ def train_epoch(
         )
         last_x_t = x_t
 
-        # ── Detector update ───────────────────────────────────────────────────
-        # Skip first and last batch of each epoch (as in the paper) because
-        # those timings include data-loading warm-up / epoch-boundary effects.
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:
             detector.update(x_t)
-            if injector is not None:
-                evaluator.record(
-                    actually_sleeping=injector.is_sleeping,
-                    amp_active=detector.amp_flag,
-                )
 
-        # ── Metrics ───────────────────────────────────────────────────────────
         total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        # ── Logging ───────────────────────────────────────────────────────────
         if i % config.log_interval == 0:
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
@@ -327,8 +302,7 @@ def main(config: TrainConfig = None) -> None:
         k           = config.k,
         ewma_lambda = config.ewma_lambda,
     )
-    gscm      = GSCM(device)
-    evaluator = DetectionEvaluator()
+    gscm = GSCM(device)
 
     # ── Sleep injector (straggler simulation) ─────────────────────────────────
     injector = SleepInjector(
@@ -360,7 +334,7 @@ def main(config: TrainConfig = None) -> None:
         epoch_t0 = time.perf_counter()
         train_loss, train_acc = train_epoch(
             model, train_loader, optimizer, criterion,
-            scaler, detector, gscm, injector, evaluator,
+            scaler, detector, gscm, injector,
             device, epoch, config, logger,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
@@ -390,14 +364,6 @@ def main(config: TrainConfig = None) -> None:
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
 
-            det_m = evaluator.log_epoch(epoch)
-            logger.info(
-                f"   Detection — P={det_m['precision']:.3f}  "
-                f"R={det_m['recall']:.3f}  F1={det_m['f1']:.3f}  "
-                f"Acc={det_m['accuracy']:.3f}"
-            )
-            evaluator.save(config.results_dir)
-
             model_state = model.module.state_dict() if world_size > 1 else model.state_dict()
             save_checkpoint(
                 {
@@ -412,7 +378,6 @@ def main(config: TrainConfig = None) -> None:
                 path=os.path.join(config.checkpoint_dir, f'algo_epoch_{epoch:03d}.pt'),
             )
 
-    evaluator.report(logger)
     cleanup(world_size)
 
 
@@ -461,7 +426,6 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     config = TrainConfig()
-    # Override config with any CLI args that were explicitly provided
     for key, val in vars(args).items():
         if val is not None and hasattr(config, key):
             setattr(config, key, val)
