@@ -40,7 +40,7 @@ class TrainConfig:
     num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
 
     # ── Training ──────────────────────────────────────────────────────────────
-    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       50))
+    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       100))
     batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   128))
     lr:           float = field(default_factory=lambda: _env('LR',           0.1))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))

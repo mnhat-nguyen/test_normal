@@ -9,3 +9,4 @@ logs/
 launch_logs_*/
 *.pt
 *.pth
+run.sh
