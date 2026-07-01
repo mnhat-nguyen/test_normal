@@ -34,7 +34,7 @@ class TrainConfig:
     dist_timeout: int = field(default_factory=lambda: _env('DIST_TIMEOUT', 600))
 
     # ── Model / Dataset ───────────────────────────────────────────────────────
-    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet18'))
+    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet50'))
     dataset:      str = field(default_factory=lambda: _env('DATASET',    'cifar10'))
     data_root:    str = field(default_factory=lambda: _env('DATA_ROOT',  './data'))
     num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
@@ -62,7 +62,7 @@ class TrainConfig:
     sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.30))
     sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.30))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 1.5))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.5))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────
