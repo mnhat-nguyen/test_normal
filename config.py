@@ -42,7 +42,7 @@ class TrainConfig:
     # ── Training ──────────────────────────────────────────────────────────────
     epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       100))
     batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   128))
-    lr:           float = field(default_factory=lambda: _env('LR',           0.05))
+    lr:           float = field(default_factory=lambda: _env('LR',           0.03))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
     weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
 
@@ -55,7 +55,7 @@ class TrainConfig:
     window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 30))
     n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
     k:            float = field(default_factory=lambda: _env('K',           2.0))
-    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.15))
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.2))
 
     # ── Sleep injection ───────────────────────────────────────────────────────
     inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
