@@ -42,7 +42,7 @@ class TrainConfig:
     # ── Training ──────────────────────────────────────────────────────────────
     epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       100))
     batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   128))
-    lr:           float = field(default_factory=lambda: _env('LR',           0.03))
+    lr:           float = field(default_factory=lambda: _env('LR',           0.05))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
     weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
 
@@ -62,7 +62,7 @@ class TrainConfig:
     sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.30))
     sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.30))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.5))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 1.5))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────
