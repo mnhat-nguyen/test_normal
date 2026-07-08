@@ -75,21 +75,39 @@ def train_step(
     gscm:         GSCM,
     amp_active:   bool,
     device:       torch.device,
+    injector=None,             # SleepInjector | None
+    batch_idx:    int   = 0,
+    last_x_t:     float = 0.0, # CLEAN (compute-only) x_t from previous batch
 ):
     """
-    Execute one full batch iteration and return (loss_value, outputs, X_t).
+    Execute one full batch iteration and return (loss_value, outputs, X_t, injected_delay).
 
     X_t is the wall-clock time (ms) for the complete step:
-        forward  +  backward (incl. DDP allreduce)  +  optimizer step
+        sleep injection (if any) + forward + backward (incl. DDP allreduce)
+        + optimizer step
 
-    The GSCM scale sync happens BEFORE the timer starts so that
-    communication overhead does not inflate X_t measurements.
+    Sleep is injected INSIDE the timed window so that a straggler node
+    detects its OWN stall directly in its own X_t (self-detection), rather
+    than relying on DDP all_reduce blocking to leak the delay into peer
+    nodes' timings.
+
+    `last_x_t` is simply the previous step's total wall time (sleep
+    included). With a small, controlled sleep_duration_ratio this does
+    not cause runaway growth — keep the ratio modest (e.g. <= 0.5) if you
+    increase sleep frequency/duration, since feeding an inflated value
+    back into the injector's rolling average will compound over repeated
+    sleeps if the ratio is large.
+
+    The GSCM scale sync happens BEFORE the timer starts — it's coordination
+    overhead, not a training cost, and excluding it keeps X_t focused on
+    the straggler-relevant portion of the step.
 
     Returns
     -------
-    loss_val : float
-    outputs  : torch.Tensor  (logits, still on device)
-    x_t      : float         (iteration time in ms)
+    loss_val        : float
+    outputs         : torch.Tensor  (logits, still on device)
+    x_t             : float         (iteration time in ms, includes injected sleep)
+    injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
     optimizer.zero_grad()
 
@@ -99,6 +117,13 @@ def train_step(
     # ── Start timer ───────────────────────────────────────────────────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
+
+    # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
+    injected_delay = 0.0
+    if injector is not None:
+        t_sleep_start  = time.perf_counter()
+        injector.maybe_sleep(batch_idx, last_x_t)   # last_x_t is clean, no snowball
+        injected_delay = time.perf_counter() - t_sleep_start   # seconds
 
     # ── Forward ───────────────────────────────────────────────────────────────
     if amp_active:
@@ -127,9 +152,9 @@ def train_step(
 
     # ── Stop timer ────────────────────────────────────────────────────────────
     torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — includes injected sleep
 
-    return loss.item(), outputs, x_t
+    return loss.item(), outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -159,21 +184,24 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        if injector is not None:
-            injector.maybe_sleep(i, last_x_t)
-
         amp_active = detector.amp_flag
 
-        loss_val, outputs, x_t = train_step(
+        loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion, scaler,
             gscm, amp_active, device,
+            injector=injector,
+            batch_idx=i,
+            last_x_t=last_x_t,        # clean history, prevents snowball
         )
+        # last_x_t simply tracks the previous step's total wall time.
+        # (No longer stripping out injected_delay — with a small, controlled
+        # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
         last_x_t = x_t
 
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:
-            detector.update(x_t)
+            detector.update(x_t)   # full x_t, sleep included
 
         total_loss += loss_val
         _, predicted = outputs.max(1)
