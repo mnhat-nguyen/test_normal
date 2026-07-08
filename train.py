@@ -35,6 +35,7 @@ from config          import TrainConfig
 from models          import get_model
 from data            import get_dataloaders
 from straggler       import StraglerDetector, GSCM
+from straggler.gscm  import GSCM_SCALE
 from sleep_injector  import SleepInjector
 from utils           import get_logger
 
@@ -321,7 +322,10 @@ def main(config: TrainConfig = None) -> None:
         )
 
     # ── AMP scaler ────────────────────────────────────────────────────────────
-    scaler = GradScaler('cuda')
+    # Pinned to GSCM_SCALE with no dynamic growth/backoff so this worker's
+    # AMP scale always matches what Normal-mode workers assume (GSCM_SCALE)
+    # with zero communication needed to keep them in sync — see gscm.py.
+    scaler = GradScaler('cuda', init_scale=GSCM_SCALE, growth_factor=1.0, backoff_factor=1.0)
 
     # ── Straggler detection ───────────────────────────────────────────────────
     detector = StraglerDetector(
