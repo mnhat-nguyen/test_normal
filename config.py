@@ -59,10 +59,10 @@ class TrainConfig:
 
     # ── Sleep injection ───────────────────────────────────────────────────────
     inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
-    sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.50))
-    sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.30))
+    sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.40))
+    sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.40))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 5))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.1))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.03))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────
