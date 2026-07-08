@@ -100,8 +100,23 @@ class StraglerDetector:
         data = list(self.W)
         m    = statistics.median(data)
         mad  = statistics.median([abs(x - m) for x in data])
-        self.UCL = m + self.k * mad
-        self.LCL = max(0.0, m - self.k * mad)
+
+        # Scale MAD to be a consistent estimator of std-dev under normality
+        # (standard constant, see Rousseeuw & Croux 1993). Without this,
+        # raw MAD understates spread by ~1.5x versus a Gaussian sigma.
+        mad_scaled = mad * 1.4826
+
+        # Floor the scaled MAD so the control band can never collapse to
+        # near-zero when the underlying X_t distribution is extremely stable.
+        # Without this floor, tiny natural jitter (GPU/OS scheduling noise)
+        # crosses UCL/LCL on its own and the detector flaps ON/OFF with no
+        # real straggler present — exactly the pattern of a near-constant
+        # baseline (MAD -> 0) making the band only 1-2ms wide.
+        min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
+        mad_eff = max(mad_scaled, min_mad)
+
+        self.UCL = m + self.k * mad_eff
+        self.LCL = max(0.0, m - self.k * mad_eff)
 
     # ─────────────────────────────────────────────────────────────────────────
     @property
