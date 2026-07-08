@@ -112,8 +112,8 @@ class StraglerDetector:
         # crosses UCL/LCL on its own and the detector flaps ON/OFF with no
         # real straggler present — exactly the pattern of a near-constant
         # baseline (MAD -> 0) making the band only 1-2ms wide.
-        min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
-        mad_eff = max(mad_scaled, min_mad)
+        # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
+        # mad_eff = max(mad_scaled, min_mad)
 
         self.UCL = m + self.k 
         self.LCL = max(0.0, m - self.k)
