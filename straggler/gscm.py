@@ -34,14 +34,14 @@ Then every worker removes that factor locally — no communication needed:
 Trade-off vs. a fully adaptive GradScaler
 ------------------------------------------
 A standard GradScaler grows/shrinks its scale dynamically in response to
-overflow. Using a fixed constant here sacrifices that adaptivity in
-exchange for zero communication overhead, matching what the paper's
-diagram actually shows. `scaler.step(optimizer)` still detects inf/nan
-gradients and skips the update when they occur — only the numeric scale
-value itself is now static rather than growing/backing off over time.
-If your model needs the adaptive range, increase GSCM_SCALE or revisit
-this trade-off; for most CNN classification workloads a fixed high scale
-(default 2**16) is stable throughout training.
+overflow. Here growth is made practically unreachable (a very large
+growth_interval) so the scale stays at GSCM_SCALE for the life of the
+run, matching what Normal-mode workers assume — zero communication
+needed. Backoff on genuine overflow is left enabled (PyTorch requires
+backoff_factor < 1.0 regardless), so a real numerical overflow still
+correctly drops the scale for that worker rather than silently
+continuing with bad gradients; this is a rare, safety-driven exception
+to the fixed-constant assumption, not a routine occurrence.
 """
 
 import torch

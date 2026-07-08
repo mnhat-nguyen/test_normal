@@ -322,10 +322,24 @@ def main(config: TrainConfig = None) -> None:
         )
 
     # ── AMP scaler ────────────────────────────────────────────────────────────
-    # Pinned to GSCM_SCALE with no dynamic growth/backoff so this worker's
-    # AMP scale always matches what Normal-mode workers assume (GSCM_SCALE)
-    # with zero communication needed to keep them in sync — see gscm.py.
-    scaler = GradScaler('cuda', init_scale=GSCM_SCALE, growth_factor=1.0, backoff_factor=1.0)
+    # Pinned to GSCM_SCALE with growth effectively disabled (growth_interval
+    # set far beyond any realistic run length) so this worker's AMP scale
+    # stays at GSCM_SCALE for the entire training run, matching what
+    # Normal-mode workers assume — zero communication needed to stay in
+    # sync. growth_factor must be > 1.0 and backoff_factor must be < 1.0
+    # per PyTorch's own assertions, so neither can be literally frozen at
+    # 1.0 — growth is instead made practically unreachable via a huge
+    # growth_interval. backoff_factor keeps its normal default: if a real
+    # numerical overflow occurs, the scale is still allowed to drop for
+    # safety (this is correct behavior — you don't want to keep using an
+    # overflowing scale just to preserve constant-value consistency).
+    scaler = GradScaler(
+        'cuda',
+        init_scale=GSCM_SCALE,
+        growth_factor=2.0,
+        backoff_factor=0.5,
+        growth_interval=1_000_000_000,  # never actually reaches next growth step
+    )
 
     # ── Straggler detection ───────────────────────────────────────────────────
     detector = StraglerDetector(
