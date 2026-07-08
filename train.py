@@ -75,30 +75,21 @@ def train_step(
     gscm:         GSCM,
     amp_active:   bool,
     device:       torch.device,
-    injector=None,      # SleepInjector | None
-    batch_idx:    int   = 0,
-    last_x_t:     float = 0.0,
 ):
     """
-    Execute one full batch iteration and return (loss_value, outputs, X_t, injected_delay).
+    Execute one full batch iteration and return (loss_value, outputs, X_t).
 
     X_t is the wall-clock time (ms) for the complete step:
-        sleep injection + forward + backward (incl. DDP allreduce) + optimizer step
+        forward  +  backward (incl. DDP allreduce)  +  optimizer step
 
-    Sleep injection is now INSIDE the timer (matching train_baseline.py) so
-    that artificially slow steps show up directly in X_t and cumulative_train_s,
-    making straggler overhead visible and comparable across both scripts.
-
-    The GSCM scale sync still happens BEFORE the timer — it is coordination
-    overhead, not a training cost, and excluding it keeps X_t focused on
-    computation + communication.
+    The GSCM scale sync happens BEFORE the timer starts so that
+    communication overhead does not inflate X_t measurements.
 
     Returns
     -------
-    loss_val        : float
-    outputs         : torch.Tensor  (logits, still on device)
-    x_t             : float         (iteration time in ms, includes injected sleep)
-    injected_delay  : float         (seconds of injected sleep, 0.0 if none)
+    loss_val : float
+    outputs  : torch.Tensor  (logits, still on device)
+    x_t      : float         (iteration time in ms)
     """
     optimizer.zero_grad()
 
@@ -108,14 +99,6 @@ def train_step(
     # ── Start timer ───────────────────────────────────────────────────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
-
-    # ── Sleep injection INSIDE timer (matches train_baseline.py) ─────────────
-    injected_delay = 0.0
-    if injector is not None:
-        slept = injector.maybe_sleep(batch_idx, last_x_t)
-        if slept and injector._recent:
-            avg_ms         = sum(injector._recent) / len(injector._recent)
-            injected_delay = (avg_ms * injector.ratio) / 1000.0
 
     # ── Forward ───────────────────────────────────────────────────────────────
     if amp_active:
@@ -144,9 +127,9 @@ def train_step(
 
     # ── Stop timer ────────────────────────────────────────────────────────────
     torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms  (includes injected sleep)
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms
 
-    return loss.item(), outputs, x_t, injected_delay
+    return loss.item(), outputs, x_t
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -172,28 +155,21 @@ def train_epoch(
     n_batches  = len(loader)
     last_x_t   = 0.0
 
-    window_injected_s     = 0.0
-    window_injected_steps = 0
-
     for i, (inputs, targets) in enumerate(loader):
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        if injector is not None:
+            injector.maybe_sleep(i, last_x_t)
+
         amp_active = detector.amp_flag
 
-        loss_val, outputs, x_t, injected_delay = train_step(
+        loss_val, outputs, x_t = train_step(
             model, inputs, targets,
             optimizer, criterion, scaler,
             gscm, amp_active, device,
-            injector=injector,
-            batch_idx=i,
-            last_x_t=last_x_t,
         )
         last_x_t = x_t
-
-        if injected_delay > 0:
-            window_injected_s     += injected_delay
-            window_injected_steps += 1
 
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:
@@ -205,12 +181,7 @@ def train_epoch(
         correct += predicted.eq(targets).sum().item()
 
         if i % config.log_interval == 0:
-            straggler_suffix = ""
-            if window_injected_steps > 0:
-                straggler_suffix = (
-                    f" | straggler: {window_injected_steps}/{config.log_interval} "
-                    f"steps slow, +{window_injected_s:.2f}s"
-                )
+            sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
                 f"Loss {loss_val:.4f} | "
@@ -219,10 +190,8 @@ def train_epoch(
                 f"Z {detector.Z or 0.0:>7.1f} | "
                 f"UCL {detector.UCL if detector.UCL != float('inf') else 0.0:>7.1f} | "
                 f"LCL {detector.LCL:>7.1f}"
-                f"{straggler_suffix}"
+                f"{sleep_tag}"
             )
-            window_injected_s     = 0.0
-            window_injected_steps = 0
 
     avg_loss = total_loss / n_batches
     accuracy = 100.0 * correct / total
