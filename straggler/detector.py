@@ -115,8 +115,8 @@ class StraglerDetector:
         # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
         # mad_eff = max(mad_scaled, min_mad)
 
-        self.UCL = m + (self.k-0.5)*mad
-        self.LCL = max(0.0, m - (self.k+1)*mad)
+        self.UCL = m + (self.k-1)*mad
+        self.LCL = max(0.0, m - (self.k+1.5)*mad)
 
     # ─────────────────────────────────────────────────────────────────────────
     @property
