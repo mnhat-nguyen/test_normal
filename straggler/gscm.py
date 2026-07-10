@@ -42,6 +42,17 @@ backoff_factor < 1.0 regardless), so a real numerical overflow still
 correctly drops the scale for that worker rather than silently
 continuing with bad gradients; this is a rare, safety-driven exception
 to the fixed-constant assumption, not a routine occurrence.
+
+Trade-off vs. the earlier all_reduce-based design
+----------------------------------------------------
+The previous (removed) all_reduce version could legitimately return
+S=1.0 as a true no-op when no worker anywhere was in AMP mode, letting
+scale_loss/unscale_gradients skip entirely. This constant-S version has
+no way to know that without communication, so it ALWAYS pays the scale/
+unscale cost in Normal mode — even with zero stragglers active. This is
+kept as cheap as possible (torch._foreach_mul_, one fused kernel call
+rather than a Python loop over every parameter) specifically because it
+runs unconditionally on every batch.
 """
 
 import torch
@@ -101,8 +112,17 @@ class GSCM:
         """
         Normal-mode workers call this after DDP allreduce to remove the
         scale factor that was applied to the loss before backward().
+
+        Uses torch._foreach_mul_ (a single fused multi-tensor kernel call)
+        instead of a per-parameter Python for-loop. This runs unconditionally
+        every batch in Normal mode (we can't cheaply know if any peer is in
+        AMP without communication — see sync_scale docstring), so keeping
+        this cheap matters: a plain Python loop over ResNet50's ~161
+        parameter tensors was measurably slower than train_baseline.py's
+        plain backward()/step(), even with zero stragglers anywhere.
         """
+        grads = [p.grad for p in model.parameters() if p.grad is not None]
+        if not grads:
+            return
         inv = 1.0 / global_scale
-        for p in model.parameters():
-            if p.grad is not None:
-                p.grad.data.mul_(inv)
+        torch._foreach_mul_(grads, inv)
