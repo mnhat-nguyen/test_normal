@@ -116,7 +116,7 @@ class StraglerDetector:
         # mad_eff = max(mad_scaled, min_mad)
 
         self.UCL = m + self.k 
-        self.LCL = max(0.0, m - self.k)
+        self.LCL = max(0.0, m - self.k-1)
 
     # ─────────────────────────────────────────────────────────────────────────
     @property
