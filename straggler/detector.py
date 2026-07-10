@@ -51,7 +51,7 @@ class StraglerDetector:
         self.N   = window_size
         self.n_min = n_min
         self.kl   = k+1
-        self.ku   = k-1
+        self.ku   = k-1.5
         self.lam = ewma_lambda
 
         self.W: deque          = deque(maxlen=window_size)
