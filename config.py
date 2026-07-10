@@ -41,7 +41,7 @@ class TrainConfig:
 
     # ── Training ──────────────────────────────────────────────────────────────
     epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       50))
-    batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   512))
+    batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   256))
     lr:           float = field(default_factory=lambda: _env('LR',           0.1))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
     weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
@@ -54,15 +54,15 @@ class TrainConfig:
     # ── Straggler Detection ───────────────────────────────────────────────────
     window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 30))
     n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
-    k:            float = field(default_factory=lambda: _env('K',           3.0))
-    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.1))
+    k:            float = field(default_factory=lambda: _env('K',           2.5))
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.15))
 
     # ── Sleep injection ───────────────────────────────────────────────────────
     inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
     sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.50))
     sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.35))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 5))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.07))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.08))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────
