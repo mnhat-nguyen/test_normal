@@ -50,7 +50,8 @@ class StraglerDetector:
         """
         self.N   = window_size
         self.n_min = n_min
-        self.k   = k
+        self.kl   = k+1
+        self.ku   = k-1
         self.lam = ewma_lambda
 
         self.W: deque          = deque(maxlen=window_size)
@@ -115,8 +116,8 @@ class StraglerDetector:
         # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
         # mad_eff = max(mad_scaled, min_mad)
 
-        self.UCL = m + (self.k-1)*mad
-        self.LCL = max(0.0, m - (self.k+2)*mad)
+        self.UCL = m + self.ku * mad
+        self.LCL = max(0.0, m - self.kl * mad)
 
     # ─────────────────────────────────────────────────────────────────────────
     @property
