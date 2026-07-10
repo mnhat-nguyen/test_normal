@@ -104,7 +104,7 @@ class StraglerDetector:
         # Scale MAD to be a consistent estimator of std-dev under normality
         # (standard constant, see Rousseeuw & Croux 1993). Without this,
         # raw MAD understates spread by ~1.5x versus a Gaussian sigma.
-        mad_scaled = mad * 1.4826
+        # mad_scaled = mad * 1.4826
 
         # Floor the scaled MAD so the control band can never collapse to
         # near-zero when the underlying X_t distribution is extremely stable.
@@ -115,8 +115,8 @@ class StraglerDetector:
         # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
         # mad_eff = max(mad_scaled, min_mad)
 
-        self.UCL = m + self.k*mad_scaled
-        self.LCL = max(0.0, m - self.k*mad_scaled)
+        self.UCL = m + (self.k-0.5)*mad
+        self.LCL = max(0.0, m - (self.k+1)*mad)
 
     # ─────────────────────────────────────────────────────────────────────────
     @property
