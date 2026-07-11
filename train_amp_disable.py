@@ -407,7 +407,7 @@ def main(config: TrainConfig = None) -> None:
         )
 
         if rank == 0:
-            results_path = os.path.join(config.results_dir, 'algo_metrics.json')
+            results_path = os.path.join(config.results_dir, 'amp_disabled_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
 
