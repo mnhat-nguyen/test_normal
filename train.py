@@ -185,7 +185,7 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        amp_active = True #detector.amp_flag
+        amp_active = detector.amp_flag
 
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
