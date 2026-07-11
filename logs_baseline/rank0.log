@@ -11490,3 +11490,38 @@
 19:34:05 [rank 0] INFO  Epoch   1 | Batch   40/49 | Loss 2.2906 | X_t  1264.4 ms
 19:34:16 [rank 0] INFO  ── Epoch   1 summary  train_loss=2.2975  train_acc=13.67%  test_loss=2.2377  test_acc=13.88%  total_train_time=161.9s
 19:34:18 [rank 0] INFO  Epoch   2 | Batch    0/49 | Loss 2.2312 | X_t  1258.7 ms [SLEEP]
+13:05:35 [rank 0] INFO  [BASELINE] Worker 0/4 | device=cuda:0
+13:05:35 [rank 0] INFO  Model: resnet50  Dataset: cifar10  Sleep injection: True
+13:05:37 [rank 0] INFO  Epoch   0 | Batch    0/49 | Loss 2.4580 | X_t  1514.3 ms
+13:06:04 [rank 0] INFO  Epoch   0 | Batch   20/49 | Loss 3.0636 | X_t  1264.0 ms
+13:06:31 [rank 0] INFO  Epoch   0 | Batch   40/49 | Loss 2.3438 | X_t  1264.7 ms [SLEEP]
+13:06:42 [rank 0] INFO  ── Epoch   0 summary  train_loss=6.4425  train_acc=10.30%  test_loss=3.1091  test_acc=13.00%  total_train_time=66.0s
+13:06:44 [rank 0] INFO  Epoch   1 | Batch    0/49 | Loss 2.3080 | X_t  1258.6 ms [SLEEP]
+13:07:12 [rank 0] INFO  Epoch   1 | Batch   20/49 | Loss 2.2931 | X_t  1264.5 ms
+13:07:38 [rank 0] INFO  Epoch   1 | Batch   40/49 | Loss 2.3006 | X_t  1263.9 ms
+13:07:49 [rank 0] INFO  ── Epoch   1 summary  train_loss=2.3215  train_acc=10.37%  test_loss=2.3019  test_acc=11.68%  total_train_time=131.8s
+13:07:50 [rank 0] INFO  Epoch   2 | Batch    0/49 | Loss 2.3077 | X_t  1258.8 ms [SLEEP]
+13:08:18 [rank 0] INFO  Epoch   2 | Batch   20/49 | Loss 2.3019 | X_t  1263.9 ms
+13:08:45 [rank 0] INFO  Epoch   2 | Batch   40/49 | Loss 2.2835 | X_t  1264.1 ms [SLEEP]
+13:08:56 [rank 0] INFO  ── Epoch   2 summary  train_loss=2.3054  train_acc=11.11%  test_loss=2.3101  test_acc=13.36%  total_train_time=198.8s
+13:08:58 [rank 0] INFO  Epoch   3 | Batch    0/49 | Loss 2.2738 | X_t  1259.2 ms [SLEEP]
+13:09:24 [rank 0] INFO  Epoch   3 | Batch   20/49 | Loss 2.2264 | X_t  1264.7 ms
+13:09:50 [rank 0] INFO  Epoch   3 | Batch   40/49 | Loss 2.1881 | X_t  1264.8 ms [SLEEP]
+13:10:01 [rank 0] INFO  ── Epoch   3 summary  train_loss=2.2388  train_acc=14.28%  test_loss=2.2112  test_acc=15.52%  total_train_time=263.2s
+13:10:03 [rank 0] INFO  Epoch   4 | Batch    0/49 | Loss 2.1808 | X_t  1259.1 ms [SLEEP]
+13:10:30 [rank 0] INFO  Epoch   4 | Batch   20/49 | Loss 2.1595 | X_t  1264.1 ms
+13:10:57 [rank 0] INFO  Epoch   4 | Batch   40/49 | Loss 2.1789 | X_t  1265.2 ms [SLEEP]
+13:11:09 [rank 0] INFO  ── Epoch   4 summary  train_loss=2.1497  train_acc=17.57%  test_loss=2.1292  test_acc=17.00%  total_train_time=330.2s
+13:11:10 [rank 0] INFO  Epoch   5 | Batch    0/49 | Loss 2.0835 | X_t  1258.6 ms
+13:16:50 [rank 0] INFO  [BASELINE] Worker 0/4 | device=cuda:0
+13:16:50 [rank 0] INFO  Model: resnet50  Dataset: cifar10  Sleep injection: True
+13:16:53 [rank 0] INFO  Epoch   0 | Batch    0/49 | Loss 2.4726 | X_t  1516.4 ms
+13:17:19 [rank 0] INFO  Epoch   0 | Batch   20/49 | Loss 2.3234 | X_t  1265.6 ms
+13:17:46 [rank 0] INFO  Epoch   0 | Batch   40/49 | Loss 4.4128 | X_t  1264.7 ms [SLEEP]
+13:17:58 [rank 0] INFO  ── Epoch   0 summary  train_loss=5.5065  train_acc=11.01%  test_loss=10.0791  test_acc=9.44%  total_train_time=66.0s
+13:17:59 [rank 0] INFO  Epoch   1 | Batch    0/49 | Loss 2.4245 | X_t  1259.4 ms [SLEEP]
+13:18:27 [rank 0] INFO  Epoch   1 | Batch   20/49 | Loss 2.2965 | X_t  1264.3 ms
+13:18:53 [rank 0] INFO  Epoch   1 | Batch   40/49 | Loss 2.3014 | X_t  1263.6 ms
+13:19:04 [rank 0] INFO  ── Epoch   1 summary  train_loss=2.3119  train_acc=12.45%  test_loss=2.2501  test_acc=14.48%  total_train_time=131.9s
+13:19:05 [rank 0] INFO  Epoch   2 | Batch    0/49 | Loss 2.2486 | X_t  1258.4 ms [SLEEP]
+13:19:33 [rank 0] INFO  Epoch   2 | Batch   20/49 | Loss 2.2177 | X_t  1263.9 ms
