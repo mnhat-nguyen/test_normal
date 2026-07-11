@@ -2,34 +2,10 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 """
-train_amp_disabled.py  –  train.py's EXACT infrastructure (GSCM, detector,
-sleep injector, all logging), but AMP is PERMANENTLY disabled.
-
-Purpose
--------
-An ablation control: isolates the cost of the algorithm's INFRASTRUCTURE
-(GSCM scale/unscale, detector.update() bookkeeping, injector) from the
-cost/benefit of AMP itself. The detector still runs internally and its
-amp_flag is still computed and logged every batch, exactly as in
-train.py — but that flag's value is IGNORED for actual control flow;
-amp_active is hardcoded to False, so every batch always takes the
-Normal-mode path (autocast is never entered, scaler.scale/unscale_/step
-are never called).
-
-Compare this script's timing against:
-  - train_baseline.py : zero infrastructure, zero AMP        (floor)
-  - train.py          : full infrastructure + real AMP       (the algorithm)
-  - this script        : full infrastructure, AMP DISABLED   (isolates
-                          infrastructure-only overhead, no AMP benefit)
-
-If this script's X_t is close to train_baseline.py's, the GSCM/detector/
-injector overhead is negligible and any gap between train.py and
-train_baseline.py is attributable to AMP's own effect (or lack of it).
-If this script is meaningfully slower than train_baseline.py, that gap
-is pure infrastructure cost, independent of AMP entirely.
-
+train.py  –  DDP training with EWMA-MAD straggler mitigation + GSCM
+=====================================================================
 Single-process test (1 machine, 1 GPU):
-    python train_amp_disabled.py
+    python train.py
 
 4-node distributed (run on EACH of the 4 machines):
     torchrun \
@@ -38,7 +14,11 @@ Single-process test (1 machine, 1 GPU):
         --node_rank=<0|1|2|3> \
         --master_addr=<IP of node-0> \
         --master_port=29500 \
-        train_amp_disabled.py
+        train.py
+
+torchrun sets RANK, LOCAL_RANK, WORLD_SIZE automatically.
+When run directly with python, those env vars are absent and
+default to 0 / 0 / 1, so all distributed code is bypassed.
 """
 
 import os
@@ -205,12 +185,8 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        # AMP PERMANENTLY DISABLED — detector.amp_flag is still computed and
-        # updated below (so its internal Z/UCL/LCL state is comparable to
-        # train.py's logs), but its value is deliberately ignored here.
-        # Every batch always takes the Normal-mode path in train_step.
-        amp_active = False
-        _detector_would_have_said = detector.amp_flag   # for logging only, unused for control flow
+        amp_active = detector.amp_flag
+        amp_active = False #detector.amp_flag --- IGNORE ---
 
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
@@ -236,16 +212,15 @@ def train_epoch(
 
         if i % config.log_interval == 0:
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
-            would_tag = ' [WOULD-BE-AMP]' if _detector_would_have_said else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
                 f"Loss {loss_val:.4f} | "
-                f"AMP OFF (forced) | "     # always OFF — this script's whole point
+                f"AMP {'ON ' if amp_active else 'OFF'} | "
                 f"X_t {x_t:>7.1f} ms | "
                 f"Z {detector.Z or 0.0:>7.1f} | "
                 f"UCL {detector.UCL if detector.UCL != float('inf') else 0.0:>7.1f} | "
                 f"LCL {detector.LCL:>7.1f}"
-                f"{sleep_tag}{would_tag}"
+                f"{sleep_tag}"
             )
 
     avg_loss = total_loss / n_batches
@@ -314,7 +289,7 @@ def main(config: TrainConfig = None) -> None:
     device = torch.device('cuda:0')
     logger = get_logger(rank)
 
-    logger.info(f"[AMP DISABLED] Worker {rank}/{world_size} ready  |  device={device}")
+    logger.info(f"Worker {rank}/{world_size} ready  |  device={device}")
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model = get_model(config.model_name, config.dataset).to(device)
@@ -378,12 +353,11 @@ def main(config: TrainConfig = None) -> None:
 
     # ── Sleep injector (straggler simulation) ─────────────────────────────────
     injector = SleepInjector(
-        prob_on            = config.sleep_prob_on,
-        prob_off           = config.sleep_prob_off,
-        check_interval     = config.sleep_check_interval,
-        duration_ratio     = config.sleep_duration_ratio,
-        seed               = config.sleep_seed,
-        calibration_window = config.sleep_calibration_window,
+        prob_on        = config.sleep_prob_on,
+        prob_off       = config.sleep_prob_off,
+        check_interval = config.sleep_check_interval,
+        duration_ratio = config.sleep_duration_ratio,
+        seed           = config.sleep_seed,
     ) if config.inject_sleep else None
 
     # ── Optional resume ───────────────────────────────────────────────────────
@@ -433,7 +407,7 @@ def main(config: TrainConfig = None) -> None:
         )
 
         if rank == 0:
-            results_path = os.path.join(config.results_dir, 'amp_disabled_metrics.json')
+            results_path = os.path.join(config.results_dir, 'algo_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
 
@@ -448,7 +422,7 @@ def main(config: TrainConfig = None) -> None:
                     'detector':  detector.state_dict(),
                     'test_acc':  test_acc,
                 },
-                path=os.path.join(config.checkpoint_dir, f'amp_disabled_epoch_{epoch:03d}.pt'),
+                path=os.path.join(config.checkpoint_dir, f'algo_epoch_{epoch:03d}.pt'),
             )
 
     cleanup(world_size)
@@ -457,7 +431,7 @@ def main(config: TrainConfig = None) -> None:
 def parse_args():
     import argparse
     from models import list_models
-    parser = argparse.ArgumentParser(description='DDP training with full infrastructure, AMP disabled (ablation control)')
+    parser = argparse.ArgumentParser(description='DDP training with straggler mitigation')
 
     # model / dataset
     parser.add_argument('--model_name',   type=str,   help=f'Model name. Choices: {list_models()}')
