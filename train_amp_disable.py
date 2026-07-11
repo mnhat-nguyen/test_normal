@@ -187,7 +187,6 @@ def train_epoch(
 
         amp_active = detector.amp_flag
         amp_active = False #detector.amp_flag --- IGNORE ---
-
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion, scaler,
@@ -407,7 +406,7 @@ def main(config: TrainConfig = None) -> None:
         )
 
         if rank == 0:
-            results_path = os.path.join(config.results_dir, 'amp_disabled_metrics.json')
+            results_path = os.path.join(config.results_dir, 'algo_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
 
