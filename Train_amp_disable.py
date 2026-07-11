@@ -1,0 +1,505 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+"""
+train_amp_disabled.py  –  train.py's EXACT infrastructure (GSCM, detector,
+sleep injector, all logging), but AMP is PERMANENTLY disabled.
+
+Purpose
+-------
+An ablation control: isolates the cost of the algorithm's INFRASTRUCTURE
+(GSCM scale/unscale, detector.update() bookkeeping, injector) from the
+cost/benefit of AMP itself. The detector still runs internally and its
+amp_flag is still computed and logged every batch, exactly as in
+train.py — but that flag's value is IGNORED for actual control flow;
+amp_active is hardcoded to False, so every batch always takes the
+Normal-mode path (autocast is never entered, scaler.scale/unscale_/step
+are never called).
+
+Compare this script's timing against:
+  - train_baseline.py : zero infrastructure, zero AMP        (floor)
+  - train.py          : full infrastructure + real AMP       (the algorithm)
+  - this script        : full infrastructure, AMP DISABLED   (isolates
+                          infrastructure-only overhead, no AMP benefit)
+
+If this script's X_t is close to train_baseline.py's, the GSCM/detector/
+injector overhead is negligible and any gap between train.py and
+train_baseline.py is attributable to AMP's own effect (or lack of it).
+If this script is meaningfully slower than train_baseline.py, that gap
+is pure infrastructure cost, independent of AMP entirely.
+
+Single-process test (1 machine, 1 GPU):
+    python train_amp_disabled.py
+
+4-node distributed (run on EACH of the 4 machines):
+    torchrun \
+        --nproc_per_node=1 \
+        --nnodes=4 \
+        --node_rank=<0|1|2|3> \
+        --master_addr=<IP of node-0> \
+        --master_port=29500 \
+        train_amp_disabled.py
+"""
+
+import os
+import time
+import json
+import datetime
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.amp import GradScaler, autocast
+
+from config          import TrainConfig
+from models          import get_model
+from data            import get_dataloaders
+from straggler       import StraglerDetector, GSCM
+from straggler.gscm  import GSCM_SCALE
+from sleep_injector  import SleepInjector
+from utils           import get_logger
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Distributed setup / teardown
+# ──────────────────────────────────────────────────────────────────────────────
+
+def setup(rank: int, world_size: int, config: TrainConfig) -> None:
+    torch.cuda.set_device(0)
+    if world_size > 1:
+        os.environ.setdefault('MASTER_ADDR', config.master_addr)
+        os.environ.setdefault('MASTER_PORT', config.master_port)
+        dist.init_process_group(
+            backend=config.backend,
+            rank=rank,
+            world_size=world_size,
+            timeout=datetime.timedelta(minutes=120),
+        )
+
+
+def cleanup(world_size: int) -> None:
+    if world_size > 1:
+        dist.destroy_process_group()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Single training step
+# ──────────────────────────────────────────────────────────────────────────────
+
+def train_step(
+    model,
+    inputs:       torch.Tensor,
+    targets:      torch.Tensor,
+    optimizer:    torch.optim.Optimizer,
+    criterion:    nn.Module,
+    scaler:       GradScaler,
+    gscm:         GSCM,
+    amp_active:   bool,
+    device:       torch.device,
+    injector=None,             # SleepInjector | None
+    batch_idx:    int   = 0,
+    last_x_t:     float = 0.0, # CLEAN (compute-only) x_t from previous batch
+):
+    """
+    Execute one full batch iteration and return (loss_value, outputs, X_t, injected_delay).
+
+    X_t is the wall-clock time (ms) for the complete step:
+        sleep injection (if any) + forward + backward (incl. DDP allreduce)
+        + optimizer step
+
+    Sleep is injected INSIDE the timed window so that a straggler node
+    detects its OWN stall directly in its own X_t (self-detection), rather
+    than relying on DDP all_reduce blocking to leak the delay into peer
+    nodes' timings.
+
+    `last_x_t` is simply the previous step's total wall time (sleep
+    included). With a small, controlled sleep_duration_ratio this does
+    not cause runaway growth — keep the ratio modest (e.g. <= 0.5) if you
+    increase sleep frequency/duration, since feeding an inflated value
+    back into the injector's rolling average will compound over repeated
+    sleeps if the ratio is large.
+
+    The GSCM scale sync happens BEFORE the timer starts — it's coordination
+    overhead, not a training cost, and excluding it keeps X_t focused on
+    the straggler-relevant portion of the step.
+
+    Returns
+    -------
+    loss_val        : float
+    outputs         : torch.Tensor  (logits, still on device)
+    x_t             : float         (iteration time in ms, includes injected sleep)
+    injected_delay  : float         (seconds slept this step, 0.0 if none)
+    """
+    optimizer.zero_grad()
+
+    # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
+    global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
+
+    # ── Start timer ───────────────────────────────────────────────────────────
+    torch.cuda.synchronize()
+    t_start = time.perf_counter()
+
+    # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
+    injected_delay = 0.0
+    if injector is not None:
+        t_sleep_start  = time.perf_counter()
+        injector.maybe_sleep(batch_idx, last_x_t)   # last_x_t is clean, no snowball
+        injected_delay = time.perf_counter() - t_sleep_start   # seconds
+
+    # ── Forward ───────────────────────────────────────────────────────────────
+    if amp_active:
+        with autocast('cuda'):
+            outputs = model(inputs)
+            loss    = criterion(outputs, targets)
+        scaler.scale(loss).backward()
+    else:
+        outputs     = model(inputs)
+        loss        = criterion(outputs, targets)
+        scaled_loss = GSCM.scale_loss(loss, global_scale)
+        scaled_loss.backward()
+
+    # ── Unscale ───────────────────────────────────────────────────────────────
+    if amp_active:
+        scaler.unscale_(optimizer)
+    else:
+        GSCM.unscale_gradients(model, global_scale)
+
+    # ── Optimizer step ────────────────────────────────────────────────────────
+    if amp_active:
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        optimizer.step()
+
+    # ── Stop timer ────────────────────────────────────────────────────────────
+    torch.cuda.synchronize()
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — includes injected sleep
+
+    return loss.item(), outputs, x_t, injected_delay
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Train one epoch
+# ──────────────────────────────────────────────────────────────────────────────
+
+def train_epoch(
+    model,
+    loader,
+    optimizer,
+    criterion,
+    scaler:    GradScaler,
+    detector:  StraglerDetector,
+    gscm:      GSCM,
+    injector,                       # SleepInjector | None
+    device:    torch.device,
+    epoch:     int,
+    config:    TrainConfig,
+    logger,
+):
+    model.train()
+    total_loss = correct = total = 0
+    n_batches  = len(loader)
+    last_x_t   = 0.0
+
+    for i, (inputs, targets) in enumerate(loader):
+        inputs  = inputs.to(device,  non_blocking=True)
+        targets = targets.to(device, non_blocking=True)
+
+        # AMP PERMANENTLY DISABLED — detector.amp_flag is still computed and
+        # updated below (so its internal Z/UCL/LCL state is comparable to
+        # train.py's logs), but its value is deliberately ignored here.
+        # Every batch always takes the Normal-mode path in train_step.
+        amp_active = False
+        _detector_would_have_said = detector.amp_flag   # for logging only, unused for control flow
+
+        loss_val, outputs, x_t, injected_delay = train_step(
+            model, inputs, targets,
+            optimizer, criterion, scaler,
+            gscm, amp_active, device,
+            injector=injector,
+            batch_idx=i,
+            last_x_t=last_x_t,        # clean history, prevents snowball
+        )
+        # last_x_t simply tracks the previous step's total wall time.
+        # (No longer stripping out injected_delay — with a small, controlled
+        # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
+        last_x_t = x_t
+
+        is_boundary = (i == 0) or (i == n_batches - 1)
+        if not is_boundary:
+            detector.update(x_t)   # full x_t, sleep included
+
+        total_loss += loss_val
+        _, predicted = outputs.max(1)
+        total   += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+        if i % config.log_interval == 0:
+            sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
+            would_tag = ' [WOULD-BE-AMP]' if _detector_would_have_said else ''
+            logger.info(
+                f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
+                f"Loss {loss_val:.4f} | "
+                f"AMP OFF (forced) | "     # always OFF — this script's whole point
+                f"X_t {x_t:>7.1f} ms | "
+                f"Z {detector.Z or 0.0:>7.1f} | "
+                f"UCL {detector.UCL if detector.UCL != float('inf') else 0.0:>7.1f} | "
+                f"LCL {detector.LCL:>7.1f}"
+                f"{sleep_tag}{would_tag}"
+            )
+
+    avg_loss = total_loss / n_batches
+    accuracy = 100.0 * correct / total
+    return avg_loss, accuracy
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Evaluation
+# ──────────────────────────────────────────────────────────────────────────────
+
+@torch.no_grad()
+def evaluate(model, loader, criterion, device):
+    model.eval()
+    total_loss = correct = total = 0
+
+    for inputs, targets in loader:
+        inputs  = inputs.to(device,  non_blocking=True)
+        targets = targets.to(device, non_blocking=True)
+        outputs = model(inputs)
+        loss    = criterion(outputs, targets)
+
+        total_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total   += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+    avg_loss = total_loss / len(loader)
+    accuracy = 100.0 * correct / total
+    return avg_loss, accuracy
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Checkpoint helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+def save_checkpoint(state: dict, path: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save(state, path)
+
+
+def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_size):
+    ckpt = torch.load(path, map_location='cpu')
+    model_obj = model.module if world_size > 1 else model
+    model_obj.load_state_dict(ckpt['model'])
+    optimizer.load_state_dict(ckpt['optimizer'])
+    scheduler.load_state_dict(ckpt['scheduler'])
+    scaler.load_state_dict(ckpt['scaler'])
+    detector.load_state_dict(ckpt['detector'])
+    return ckpt['epoch']
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Main
+# ──────────────────────────────────────────────────────────────────────────────
+
+def main(config: TrainConfig = None) -> None:
+    if config is None:
+        config = TrainConfig()
+
+    rank       = int(os.environ.get('RANK',       0))
+    local_rank = int(os.environ.get('LOCAL_RANK', 0))
+    world_size = int(os.environ.get('WORLD_SIZE', 1))
+
+    setup(rank, world_size, config)
+    device = torch.device('cuda:0')
+    logger = get_logger(rank)
+
+    logger.info(f"[AMP DISABLED] Worker {rank}/{world_size} ready  |  device={device}")
+
+    # ── Model ─────────────────────────────────────────────────────────────────
+    model = get_model(config.model_name, config.dataset).to(device)
+    if world_size > 1:
+        model = DDP(model, device_ids=[0])
+    logger.info(f"Model : {config.model_name}  dataset : {config.dataset}")
+
+    # ── Data ──────────────────────────────────────────────────────────────────
+    train_loader, test_loader = get_dataloaders(config, rank, world_size)
+    logger.info(
+        f"Train batches: {len(train_loader)}  "
+        f"Test batches: {len(test_loader)}"
+    )
+
+    # ── Optimiser / scheduler ─────────────────────────────────────────────────
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=config.lr,
+        momentum=config.momentum,
+        weight_decay=config.weight_decay,
+    )
+
+    if config.scheduler == 'cosine':
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config.epochs
+        )
+    else:
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=list(config.milestones), gamma=config.gamma
+        )
+
+    # ── AMP scaler ────────────────────────────────────────────────────────────
+    # Pinned to GSCM_SCALE with growth effectively disabled (growth_interval
+    # set far beyond any realistic run length) so this worker's AMP scale
+    # stays at GSCM_SCALE for the entire training run, matching what
+    # Normal-mode workers assume — zero communication needed to stay in
+    # sync. growth_factor must be > 1.0 and backoff_factor must be < 1.0
+    # per PyTorch's own assertions, so neither can be literally frozen at
+    # 1.0 — growth is instead made practically unreachable via a huge
+    # growth_interval. backoff_factor keeps its normal default: if a real
+    # numerical overflow occurs, the scale is still allowed to drop for
+    # safety (this is correct behavior — you don't want to keep using an
+    # overflowing scale just to preserve constant-value consistency).
+    scaler = GradScaler(
+        'cuda',
+        init_scale=GSCM_SCALE,
+        growth_factor=2.0,
+        backoff_factor=0.5,
+        growth_interval=1_000_000_000,  # never actually reaches next growth step
+    )
+
+    # ── Straggler detection ───────────────────────────────────────────────────
+    detector = StraglerDetector(
+        window_size = config.window_size,
+        n_min       = config.n_min,
+        k           = config.k,
+        ewma_lambda = config.ewma_lambda,
+    )
+    gscm = GSCM(device)
+
+    # ── Sleep injector (straggler simulation) ─────────────────────────────────
+    injector = SleepInjector(
+        prob_on            = config.sleep_prob_on,
+        prob_off           = config.sleep_prob_off,
+        check_interval     = config.sleep_check_interval,
+        duration_ratio     = config.sleep_duration_ratio,
+        seed               = config.sleep_seed,
+        calibration_window = config.sleep_calibration_window,
+    ) if config.inject_sleep else None
+
+    # ── Optional resume ───────────────────────────────────────────────────────
+    start_epoch = 0
+    if config.resume and os.path.isfile(config.resume):
+        start_epoch = load_checkpoint(
+            config.resume, model, optimizer, scheduler, detector, scaler, world_size
+        )
+        logger.info(f"Resumed from {config.resume}  (epoch {start_epoch})")
+
+    # ── Metrics tracking ──────────────────────────────────────────────────────
+    os.makedirs(config.results_dir, exist_ok=True)
+    metrics            = []
+    cumulative_train_s = 0.0
+
+    # ── Training loop ─────────────────────────────────────────────────────────
+    for epoch in range(start_epoch, config.epochs):
+        if world_size > 1:
+            train_loader.sampler.set_epoch(epoch)
+
+        epoch_t0 = time.perf_counter()
+        train_loss, train_acc = train_epoch(
+            model, train_loader, optimizer, criterion,
+            scaler, detector, gscm, injector,
+            device, epoch, config, logger,
+        )
+        cumulative_train_s += time.perf_counter() - epoch_t0
+
+        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+        scheduler.step()
+
+        metrics.append({
+            'epoch':              epoch,
+            'cumulative_train_s': round(cumulative_train_s, 3),
+            'train_loss':         round(train_loss, 6),
+            'train_acc':          round(train_acc,  4),
+            'test_loss':          round(test_loss,  6),
+            'test_acc':           round(test_acc,   4),
+        })
+
+        logger.info(
+            f"── Epoch {epoch:>3d} summary  "
+            f"train_loss={train_loss:.4f}  train_acc={train_acc:.2f}%  "
+            f"test_loss={test_loss:.4f}  test_acc={test_acc:.2f}%  "
+            f"lr={scheduler.get_last_lr()[0]:.5f}  "
+            f"total_train_time={cumulative_train_s:.1f}s"
+        )
+
+        if rank == 0:
+            results_path = os.path.join(config.results_dir, 'amp_disabled_metrics.json')
+            with open(results_path, 'w') as f:
+                json.dump(metrics, f, indent=2)
+
+            model_state = model.module.state_dict() if world_size > 1 else model.state_dict()
+            save_checkpoint(
+                {
+                    'epoch':     epoch + 1,
+                    'model':     model_state,
+                    'optimizer': optimizer.state_dict(),
+                    'scheduler': scheduler.state_dict(),
+                    'scaler':    scaler.state_dict(),
+                    'detector':  detector.state_dict(),
+                    'test_acc':  test_acc,
+                },
+                path=os.path.join(config.checkpoint_dir, f'amp_disabled_epoch_{epoch:03d}.pt'),
+            )
+
+    cleanup(world_size)
+
+
+def parse_args():
+    import argparse
+    from models import list_models
+    parser = argparse.ArgumentParser(description='DDP training with full infrastructure, AMP disabled (ablation control)')
+
+    # model / dataset
+    parser.add_argument('--model_name',   type=str,   help=f'Model name. Choices: {list_models()}')
+    parser.add_argument('--dataset',      type=str,   choices=['cifar10', 'cifar100'])
+    parser.add_argument('--data_root',    type=str)
+
+    # training
+    parser.add_argument('--epochs',       type=int)
+    parser.add_argument('--batch_size',   type=int)
+    parser.add_argument('--lr',           type=float)
+    parser.add_argument('--momentum',     type=float)
+    parser.add_argument('--weight_decay', type=float)
+
+    # scheduler
+    parser.add_argument('--scheduler',    type=str,   choices=['cosine', 'multistep'])
+
+    # detector
+    parser.add_argument('--window_size',  type=int)
+    parser.add_argument('--n_min',        type=int)
+    parser.add_argument('--k',            type=float)
+    parser.add_argument('--ewma_lambda',  type=float)
+
+    # sleep injection
+    parser.add_argument('--inject_sleep',         type=lambda x: x.lower() == 'true')
+    parser.add_argument('--sleep_prob_on',         type=float)
+    parser.add_argument('--sleep_prob_off',        type=float)
+    parser.add_argument('--sleep_check_interval',  type=int)
+    parser.add_argument('--sleep_duration_ratio',  type=float)
+    parser.add_argument('--sleep_seed',            type=int)
+
+    # logging
+    parser.add_argument('--log_interval',   type=int)
+    parser.add_argument('--checkpoint_dir', type=str)
+    parser.add_argument('--results_dir',    type=str)
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    config = TrainConfig()
+    for key, val in vars(args).items():
+        if val is not None and hasattr(config, key):
+            setattr(config, key, val)
+    main(config)
