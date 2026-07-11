@@ -5,31 +5,43 @@ from typing import Optional
 
 class StraglerDetector:
     """
-    EWMA-based straggler detector with a self-purifying sliding window.
+    EWMA-based Straggler Detection with Self-Purifying Sliding Window.
 
-    One instance runs per worker, independently.
+    One instance runs per worker, independently. Implements Algorithm 1
+    from algorithm.pdf:
 
-    Algorithm
-    ---------
-    For each batch iteration, X_t is the measured wall-clock time (ms) to
-    complete one full batch: forward + backward + DDP allreduce + optimizer step.
+    Input : N (window size), N_min (cold-start threshold),
+            k (MAD scaling factor), λ (EWMA smoothing factor)
+    Init  : W ← [], Z ← None, amp_flag ← 0, UCL ← ∞, LCL ← 0
 
-    1. EWMA update
-           Z_t = λ·X_t + (1-λ)·Z_{t-1}
+    For each iteration with duration X_t:
+      1. EWMA update:
+             Z ← X_t                          if Z is None
+             Z ← λ·X_t + (1-λ)·Z              otherwise
 
-    2. Mode logic
-       AMP active  → if Z_t < LCL : deactivate AMP
-       AMP inactive→ if Z_t > UCL : activate AMP
-                     else if X_t < UCL : treat as clean
-                         append X_t to W (sliding window)
-                         recompute UCL / LCL from W via MAD
+      2. Mode logic:
+         if amp_flag == 1:
+             if Z < LCL: amp_flag ← 0
+         else:
+             if |W| >= N_min and Z > UCL:
+                 amp_flag ← 1
+             else:
+                 if X_t < UCL:                 # clean observation — NOT Z,
+                                                # since Z lags X_t and would
+                                                # let already-elevated values
+                                                # slip into W during that lag
+                     append X_t to W (drop oldest if |W| > N)
+                     if |W| >= N_min:           # recompute thresholds
+                         m   ← median(W)
+                         MAD ← median(|x - m| for x in W)
+                         UCL ← m + ku·MAD
+                         LCL ← max(0, m - kl·MAD)
 
-    UCL = median(W) + k · MAD(W)
-    LCL = max(0, median(W) − k · MAD(W))
-
-    The window W only ever contains clean observations, so the baseline
-    never drifts upward due to straggler contamination.
-    Detection is disabled until |W| ≥ n_min (cold-start guard).
+    Both UCL and LCL are derived from the SAME window W (Normal-mode
+    clean observations only). Neither is recomputed while amp_flag == 1
+    — W is only updated in Normal mode, so both thresholds stay frozen
+    at whatever they were when AMP last activated, until the worker
+    returns to Normal mode and starts admitting clean samples again.
     """
 
     def __init__(
@@ -44,21 +56,26 @@ class StraglerDetector:
         ----------
         window_size  : N      – maximum samples kept in the sliding window
         n_min        : N_min  – minimum samples before detection is enabled
-        k            : MAD scaling factor (same for UCL and LCL)
+        k            : base MAD scaling factor; ku/kl derived from it
         ewma_lambda  : λ      – EWMA weight on the newest observation
                                 (0 < λ ≤ 1; smaller → heavier smoothing)
         """
-        self.N   = window_size
+        self.N     = window_size
         self.n_min = n_min
-        self.kl   = k+1
-        self.ku   = k-1.5
-        self.lam = ewma_lambda
+        self.kl    = k + 1
+        self.ku    = k - 1.5
+        self.lam   = ewma_lambda
 
-        self.W: deque          = deque(maxlen=window_size)
-        self.Z: Optional[float] = None   # EWMA state; None until first observation
-        self.amp_flag: bool     = False
-        self.UCL: float         = float('inf')
-        self.LCL: float         = 0.0
+        self.W: deque            = deque(maxlen=window_size)
+        self.Z: Optional[float]  = None   # EWMA state; None until first observation
+        self.amp_flag: bool      = False
+        self.UCL: float          = float('inf')
+        self.LCL: float          = 0.0
+
+        # True once |W| has reached n_min at least once. Monotonic — W only
+        # grows via append and never shrinks below n_min once reached, so
+        # this never needs to flip back to False.
+        self.filled: bool        = False
 
     # ─────────────────────────────────────────────────────────────────────────
     def update(self, x_t: float) -> bool:
@@ -84,14 +101,20 @@ class StraglerDetector:
                 self.amp_flag = False
 
         else:
+            # Once True, short-circuits — len(self.W) is never checked again.
+            if not self.filled:
+                self.filled = len(self.W) >= self.n_min
+
             # Straggler detection (only after cold-start window is filled)
-            if self.is_warmed_up and self.Z > self.UCL:
+            if self.filled and self.Z > self.UCL:
                 self.amp_flag = True
             else:
-                # X_t looks clean → admit to window and refresh thresholds
+                # x_t (NOT Z) looks clean → admit to window and refresh
+                # thresholds. Using x_t, not the lagging Z, keeps W free of
+                # values from the early part of a straggler event.
                 if x_t < self.UCL:
                     self.W.append(x_t)
-                    if self.is_warmed_up:
+                    if self.filled:
                         self._recompute_thresholds()
 
         return self.amp_flag
@@ -105,25 +128,18 @@ class StraglerDetector:
         # Scale MAD to be a consistent estimator of std-dev under normality
         # (standard constant, see Rousseeuw & Croux 1993). Without this,
         # raw MAD understates spread by ~1.5x versus a Gaussian sigma.
-        # mad_scaled = mad * 1.4826
+        mad_scaled = mad * 1.4826
 
         # Floor the scaled MAD so the control band can never collapse to
         # near-zero when the underlying X_t distribution is extremely stable.
         # Without this floor, tiny natural jitter (GPU/OS scheduling noise)
         # crosses UCL/LCL on its own and the detector flaps ON/OFF with no
-        # real straggler present — exactly the pattern of a near-constant
-        # baseline (MAD -> 0) making the band only 1-2ms wide.
-        # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
-        # mad_eff = max(mad_scaled, min_mad)
+        # real straggler present.
+        min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
+        mad_eff = max(mad_scaled, min_mad)
 
-        self.UCL = m + self.ku * mad
-        self.LCL = max(0.0, m - self.kl * mad)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    @property
-    def is_warmed_up(self) -> bool:
-        """True once the window holds at least n_min clean samples."""
-        return len(self.W) >= self.n_min
+        self.UCL = m + self.ku * mad_eff
+        self.LCL = max(0.0, m - self.kl * mad_eff)
 
     # ── Checkpoint helpers ────────────────────────────────────────────────────
     def state_dict(self) -> dict:
@@ -133,6 +149,7 @@ class StraglerDetector:
             'amp_flag': self.amp_flag,
             'UCL':      self.UCL,
             'LCL':      self.LCL,
+            'filled':   self.filled,
         }
 
     def load_state_dict(self, d: dict) -> None:
@@ -141,3 +158,4 @@ class StraglerDetector:
         self.amp_flag = d['amp_flag']
         self.UCL      = d['UCL']
         self.LCL      = d['LCL']
+        self.filled   = d.get('filled', len(self.W) >= self.n_min)
