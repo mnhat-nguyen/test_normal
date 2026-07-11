@@ -135,11 +135,11 @@ class StraglerDetector:
         # Without this floor, tiny natural jitter (GPU/OS scheduling noise)
         # crosses UCL/LCL on its own and the detector flaps ON/OFF with no
         # real straggler present.
-        min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
-        mad_eff = max(mad_scaled, min_mad)
+        # min_mad = max(1.0, 0.01 * m)   # at least 1ms, or 1% of the median
+        # mad_eff = max(mad_scaled, min_mad)
 
-        self.UCL = m + self.ku * mad_eff
-        self.LCL = max(0.0, m - self.kl * mad_eff)
+        self.UCL = m + self.ku * mad
+        self.LCL = max(0.0, m - self.kl * mad)
 
     # ── Checkpoint helpers ────────────────────────────────────────────────────
     def state_dict(self) -> dict:
