@@ -6,7 +6,6 @@ Both train.py (with algorithm) and train_baseline.py use the same class
 with the same seed so both runs face identical straggler conditions and
 the comparison is fair.
 """
-
 import time
 import random
 from collections import deque
@@ -21,6 +20,13 @@ class SleepInjector:
       - If currently NOT sleeping: enter sleep with probability `prob_on`.
       - If currently sleeping:     leave  sleep with probability `prob_off`.
       - While sleeping: sleep for `duration_ratio` × recent average iter time.
+
+    The very first iteration of the whole run is skipped entirely: it's a
+    cold-start outlier (CUDA context init, cuDNN autotuning, lazy kernel
+    compilation) whose inflated time would otherwise pollute `_recent` and
+    make every subsequent sleep duration too large. The training loops
+    initialise last_x_t = 0.0 and only ever pass 0.0 on that very first
+    call, so `last_iter_ms <= 0` uniquely identifies it.
     """
 
     def __init__(
@@ -54,8 +60,15 @@ class SleepInjector:
         -------
         sleeping : bool  — whether a sleep was injected this call
         """
-        if last_iter_ms > 0:
-            self._recent.append(last_iter_ms)
+        # Skip the very first iteration of the run (cold-start outlier).
+        # last_iter_ms is 0.0 only on that first call, since every real
+        # iteration produces a positive X_t. Returning early here means the
+        # cold-start time is never added to _recent and no sleep is injected
+        # on batch 0.
+        if last_iter_ms <= 0:
+            return False
+
+        self._recent.append(last_iter_ms)
 
         # Re-roll sleep state every `interval` batches
         if batch_idx % self.interval == 0:
@@ -70,6 +83,7 @@ class SleepInjector:
             avg_ms    = sum(self._recent) / len(self._recent)
             sleep_sec = (avg_ms * self.ratio) / 1000.0
             time.sleep(sleep_sec)
+            print(f"[SLEEP] batch {batch_idx} : sleeping for {sleep_sec*1000:.3f}ms ")
             return True
 
         return False

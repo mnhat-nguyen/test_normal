@@ -34,13 +34,13 @@ class TrainConfig:
     dist_timeout: int = field(default_factory=lambda: _env('DIST_TIMEOUT', 600))
 
     # ── Model / Dataset ───────────────────────────────────────────────────────
-    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet18'))
+    model_name:   str = field(default_factory=lambda: _env('MODEL_NAME', 'resnet50'))
     dataset:      str = field(default_factory=lambda: _env('DATASET',    'cifar10'))
     data_root:    str = field(default_factory=lambda: _env('DATA_ROOT',  './data'))
     num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
 
     # ── Training ──────────────────────────────────────────────────────────────
-    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       100))
+    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       20))
     batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   256))
     lr:           float = field(default_factory=lambda: _env('LR',           0.1))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
@@ -55,14 +55,14 @@ class TrainConfig:
     window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 30))
     n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
     k:            float = field(default_factory=lambda: _env('K',           2.5))
-    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.15))
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.4))
 
     # ── Sleep injection ───────────────────────────────────────────────────────
     inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
     sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.50))
     sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.35))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.07))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.5))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────

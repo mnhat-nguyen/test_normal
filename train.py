@@ -198,7 +198,7 @@ def train_epoch(
         # last_x_t simply tracks the previous step's total wall time.
         # (No longer stripping out injected_delay — with a small, controlled
         # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
-        last_x_t = x_t
+        last_x_t = x_t - (injected_delay * 1000.0) 
 
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary:

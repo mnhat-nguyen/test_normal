@@ -112,10 +112,10 @@ class StraglerDetector:
                 # x_t (NOT Z) looks clean → admit to window and refresh
                 # thresholds. Using x_t, not the lagging Z, keeps W free of
                 # values from the early part of a straggler event.
-                if x_t < self.UCL:
-                    self.W.append(x_t)
-                    if self.filled:
-                        self._recompute_thresholds()
+                # if x_t < self.UCL:
+                self.W.append(x_t)
+                if self.filled:
+                    self._recompute_thresholds()
 
         return self.amp_flag
 

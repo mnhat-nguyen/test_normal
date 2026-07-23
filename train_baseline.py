@@ -50,28 +50,32 @@ def cleanup(world_size: int) -> None:
 # Single training step  —  plain FP32, no AMP, no GSCM
 # ──────────────────────────────────────────────────────────────────────────────
 
-def train_step(model, inputs, targets, optimizer, criterion):
-    """
-    One full batch: forward + backward + optimizer step.
-
-    X_t = wall-clock time (ms) for the complete step,
-    matching the definition used in the algorithm version.
-    """
+def train_step(model, inputs, targets, optimizer, criterion,
+               injector=None, batch_idx=0, last_x_t=0.0):
     optimizer.zero_grad()
 
+    # ── Start timer ───────────────────────────────────────────────────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
+    # ── Sleep injection — INSIDE the timer (matches train.py) ────────────────
+    injected_delay = 0.0
+    if injector is not None:
+        t_sleep_start  = time.perf_counter()
+        injector.maybe_sleep(batch_idx, last_x_t)
+        injected_delay = time.perf_counter() - t_sleep_start   # seconds
+
+    # ── Forward / backward / step ─────────────────────────────────────────────
     outputs = model(inputs)
     loss    = criterion(outputs, targets)
     loss.backward()
     optimizer.step()
 
+    # ── Stop timer ────────────────────────────────────────────────────────────
     torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — includes injected sleep
 
-    return loss.item(), outputs, x_t
-
+    return loss.item(), outputs, x_t, injected_delay
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Train one epoch
@@ -88,14 +92,15 @@ def train_epoch(model, loader, optimizer, criterion,
         inputs  = inputs.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        # Same sleep injection pattern as train.py
-        if injector is not None:
-            injector.maybe_sleep(i, last_x_t)
-
-        loss_val, outputs, x_t = train_step(
-            model, inputs, targets, optimizer, criterion
+        loss_val, outputs, x_t, injected_delay = train_step(
+            model, inputs, targets, optimizer, criterion,
+            injector=injector,
+            batch_idx=i,
+            last_x_t=last_x_t,        # clean history, prevents snowball
         )
-        last_x_t = x_t
+        # Strip injected sleep so the injector's feedback stays clean —
+        # identical to train.py, keeps sleep durations from snowballing.
+        last_x_t = x_t - (injected_delay * 1000.0)
 
         total_loss += loss_val
         _, predicted = outputs.max(1)

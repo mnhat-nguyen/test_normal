@@ -185,7 +185,7 @@ def main():
                         help='Skip generating plots')
     args = parser.parse_args()
 
-    baseline_path = os.path.join(args.results_dir, 'amp_disabled_metrics.json')
+    baseline_path = os.path.join(args.results_dir, 'baseline_metrics.json')
     algo_path     = os.path.join(args.results_dir, 'algo_metrics.json')
 
     print(f"\nLoading baseline : {baseline_path}")
