@@ -16,6 +16,7 @@ Run:
 import os
 import time
 import json
+import contextlib
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -51,10 +52,23 @@ def cleanup(world_size: int) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def train_step(model, inputs, targets, optimizer, criterion,
-               injector=None, batch_idx=0, last_x_t=0.0):
+               injector=None, batch_idx=0, last_x_t=0.0, world_size=1):
+    """
+    One full batch: forward + backward-compute + optimizer step.
+
+    X_t = COMPUTATION time (ms) only — forward + backward-compute + step +
+    injected sleep. The DDP all_reduce (network) is EXCLUDED via
+    model.no_sync() and triggered separately outside the timer, identical
+    to train.py, so both scripts' X_t measure the same thing (compute, not
+    communication). This project targets COMPUTATION stragglers.
+
+    Returns
+    -------
+    loss_val, outputs, x_t (compute ms, excl. all_reduce), injected_delay
+    """
     optimizer.zero_grad()
 
-    # ── Start timer ───────────────────────────────────────────────────────────
+    # ── Start timer (COMPUTE only) ────────────────────────────────────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
@@ -65,24 +79,37 @@ def train_step(model, inputs, targets, optimizer, criterion,
         injector.maybe_sleep(batch_idx, last_x_t)
         injected_delay = time.perf_counter() - t_sleep_start   # seconds
 
-    # ── Forward / backward / step ─────────────────────────────────────────────
+    # ── Forward ───────────────────────────────────────────────────────────────
     outputs = model(inputs)
     loss    = criterion(outputs, targets)
-    loss.backward()
+
+    # ── Backward WITHOUT all_reduce (deferred via no_sync) ───────────────────
+    sync_ctx = model.no_sync() if world_size > 1 else contextlib.nullcontext()
+    with sync_ctx:
+        loss.backward()
+
+    # ── Stop timer — X_t = compute + sleep, NO all_reduce ────────────────────
+    torch.cuda.synchronize()
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — COMPUTE only
+
+    # ── all_reduce OUTSIDE the timer (communication, excluded from X_t) ──────
+    if world_size > 1:
+        for p in model.parameters():
+            if p.grad is not None:
+                dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)
+                p.grad /= world_size
+
     optimizer.step()
 
-    # ── Stop timer ────────────────────────────────────────────────────────────
-    torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — includes injected sleep
-
     return loss.item(), outputs, x_t, injected_delay
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Train one epoch
 # ──────────────────────────────────────────────────────────────────────────────
 
 def train_epoch(model, loader, optimizer, criterion,
-                injector, device, epoch, config, logger):
+                injector, device, epoch, config, logger, world_size=1):
     model.train()
     total_loss = correct = total = 0
     n_batches  = len(loader)
@@ -92,14 +119,20 @@ def train_epoch(model, loader, optimizer, criterion,
         inputs  = inputs.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        # Cold-start skip (epoch 0, batch 0): CUDA/cuDNN init outlier — don't
+        # let it feed the injector. Handled by passing injector=None for it.
+        is_cold_start = (epoch == 0 and i == 0)
+        step_injector = None if is_cold_start else injector
+
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets, optimizer, criterion,
-            injector=injector,
+            injector=step_injector,
             batch_idx=i,
-            last_x_t=last_x_t,        # clean history, prevents snowball
+            last_x_t=last_x_t,
+            world_size=world_size,
         )
         # Strip injected sleep so the injector's feedback stays clean —
-        # identical to train.py, keeps sleep durations from snowballing.
+        # identical to train.py, prevents sleep-duration snowball.
         last_x_t = x_t - (injected_delay * 1000.0)
 
         total_loss += loss_val
@@ -193,11 +226,12 @@ def main() -> None:
     # ── Sleep injector ────────────────────────────────────────────────────────
     # Use the SAME seed as train.py so both face identical straggler patterns
     injector = SleepInjector(
-        prob_on        = config.sleep_prob_on,
-        prob_off       = config.sleep_prob_off,
-        check_interval = config.sleep_check_interval,
-        duration_ratio = config.sleep_duration_ratio,
-        seed           = config.sleep_seed,
+        prob_on            = config.sleep_prob_on,
+        prob_off           = config.sleep_prob_off,
+        check_interval     = config.sleep_check_interval,
+        duration_ratio     = config.sleep_duration_ratio,
+        seed               = config.sleep_seed,
+        calibration_window = getattr(config, 'sleep_calibration_window', 10),
     ) if config.inject_sleep else None
 
     # ── Metrics tracking ──────────────────────────────────────────────────────
@@ -214,6 +248,7 @@ def main() -> None:
         train_loss, train_acc = train_epoch(
             model, train_loader, optimizer, criterion,
             injector, device, epoch, config, logger,
+            world_size=world_size,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
