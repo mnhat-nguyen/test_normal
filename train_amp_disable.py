@@ -25,6 +25,7 @@ import os
 import time
 import json
 import datetime
+import contextlib
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -79,35 +80,29 @@ def train_step(
     injector=None,             # SleepInjector | None
     batch_idx:    int   = 0,
     last_x_t:     float = 0.0, # CLEAN (compute-only) x_t from previous batch
+    world_size:   int   = 1,
 ):
     """
     Execute one full batch iteration and return (loss_value, outputs, X_t, injected_delay).
 
-    X_t is the wall-clock time (ms) for the complete step:
-        sleep injection (if any) + forward + backward (incl. DDP allreduce)
-        + optimizer step
+    X_t is the COMPUTATION time (ms) only:
+        injected sleep (if any) + forward pass
 
-    Sleep is injected INSIDE the timed window so that a straggler node
-    detects its OWN stall directly in its own X_t (self-detection), rather
-    than relying on DDP all_reduce blocking to leak the delay into peer
-    nodes' timings.
+    The timer STOPS BEFORE loss.backward(), so the entire backward — which
+    in DDP fuses gradient computation with the all_reduce network sync — is
+    EXCLUDED from X_t. This project targets COMPUTATION stragglers (matching
+    Korel), not communication, so X_t must reflect compute, not the network
+    all_reduce that would otherwise dominate iteration time on a slow
+    interconnect and drown out the signal the detector watches.
 
-    `last_x_t` is simply the previous step's total wall time (sleep
-    included). With a small, controlled sleep_duration_ratio this does
-    not cause runaway growth — keep the ratio modest (e.g. <= 0.5) if you
-    increase sleep frequency/duration, since feeding an inflated value
-    back into the injector's rolling average will compound over repeated
-    sleeps if the ratio is large.
-
-    The GSCM scale sync happens BEFORE the timer starts — it's coordination
-    overhead, not a training cost, and excluding it keeps X_t focused on
-    the straggler-relevant portion of the step.
+    Sleep is injected INSIDE the timed window so a straggler node detects its
+    OWN compute stall directly in its own X_t (self-detection).
 
     Returns
     -------
     loss_val        : float
     outputs         : torch.Tensor  (logits, still on device)
-    x_t             : float         (iteration time in ms, includes injected sleep)
+    x_t             : float         (forward + injected sleep, ms; excl. backward/all_reduce)
     injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
     optimizer.zero_grad()
@@ -115,7 +110,7 @@ def train_step(
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
     global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
 
-    # ── Start timer ───────────────────────────────────────────────────────────
+    # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
@@ -131,13 +126,28 @@ def train_step(
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
+    else:
+        outputs = model(inputs)
+        loss    = criterion(outputs, targets)
+
+    # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
+    # X_t measures forward + injected sleep only. The entire backward (which
+    # in DDP fuses gradient compute with the all_reduce network sync) falls
+    # outside the timer, so X_t reflects computation-straggler cost without
+    # the communication cost this project handles separately.
+    torch.cuda.synchronize()
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
+#check this
+    t_backward_start = time.perf_counter()
+    # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
+    if amp_active:
+        print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
         scaler.scale(loss).backward()
     else:
-        outputs     = model(inputs)
-        loss        = criterion(outputs, targets)
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-
+    
+    
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
         scaler.unscale_(optimizer)
@@ -150,11 +160,9 @@ def train_step(
         scaler.update()
     else:
         optimizer.step()
-
-    # ── Stop timer ────────────────────────────────────────────────────────────
-    torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — includes injected sleep
-
+    
+    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
     return loss.item(), outputs, x_t, injected_delay
 
 
@@ -175,6 +183,7 @@ def train_epoch(
     epoch:     int,
     config:    TrainConfig,
     logger,
+    world_size: int = 1,
 ):
     model.train()
     total_loss = correct = total = 0
@@ -186,22 +195,36 @@ def train_epoch(
         targets = targets.to(device, non_blocking=True)
 
         amp_active = detector.amp_flag
-        amp_active = False #detector.amp_flag --- IGNORE ---
+        amp_active = False # Disable AMP for all workers
+
+        # The very first iteration of the whole run (epoch 0, batch 0) is a
+        # cold-start outlier: CUDA context init, cuDNN autotuning, and lazy
+        # kernel compilation all happen here, inflating X_t far above steady
+        # state. Skip BOTH sleep injection and detector/calibration updates
+        # for it, so neither the injector's frozen reference_ms nor the
+        # detector's window W is contaminated by this one-off spike.
+        is_cold_start = (epoch == 0 and i == 0)
+        step_injector = None if is_cold_start else injector
+
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion, scaler,
             gscm, amp_active, device,
-            injector=injector,
+            injector=step_injector,
             batch_idx=i,
             last_x_t=last_x_t,        # clean history, prevents snowball
+            world_size=world_size,
         )
         # last_x_t simply tracks the previous step's total wall time.
         # (No longer stripping out injected_delay — with a small, controlled
         # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
         last_x_t = x_t
 
+        # Skip detector update on: the cold-start spike, and the first/last
+        # batch of each epoch (existing boundary guard, avoids DataLoader
+        # prefetch/drain edge effects).
         is_boundary = (i == 0) or (i == n_batches - 1)
-        if not is_boundary:
+        if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
 
         total_loss += loss_val
@@ -352,11 +375,11 @@ def main(config: TrainConfig = None) -> None:
 
     # ── Sleep injector (straggler simulation) ─────────────────────────────────
     injector = SleepInjector(
-        prob_on        = config.sleep_prob_on,
-        prob_off       = config.sleep_prob_off,
-        check_interval = config.sleep_check_interval,
-        duration_ratio = config.sleep_duration_ratio,
-        seed           = config.sleep_seed,
+        prob_on            = config.sleep_prob_on,
+        prob_off           = config.sleep_prob_off,
+        check_interval     = config.sleep_check_interval,
+        duration_ratio     = config.sleep_duration_ratio,
+        seed               = config.sleep_seed,
     ) if config.inject_sleep else None
 
     # ── Optional resume ───────────────────────────────────────────────────────
@@ -382,6 +405,7 @@ def main(config: TrainConfig = None) -> None:
             model, train_loader, optimizer, criterion,
             scaler, detector, gscm, injector,
             device, epoch, config, logger,
+            world_size=world_size,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
@@ -406,7 +430,7 @@ def main(config: TrainConfig = None) -> None:
         )
 
         if rank == 0:
-            results_path = os.path.join(config.results_dir, 'amp_disabled_metrics.json')
+            results_path = os.path.join(config.results_dir, 'algo_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
 

@@ -141,7 +141,7 @@ def train_step(
     t_backward_start = time.perf_counter()
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     if amp_active:
-        print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
+        print(f"amp onbatch {batch_idx} : x_t {x_t:.3f}ms ")
         scaler.scale(loss).backward()
     else:
         scaled_loss = GSCM.scale_loss(loss, global_scale)
