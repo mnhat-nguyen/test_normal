@@ -91,7 +91,6 @@ def train_step(model, inputs, targets, optimizer, criterion,
     # ── Backward + all_reduce + step happen AFTER the timer ──────────────────
     loss.backward()
     optimizer.step()
-    torch.cuda.synchronize()
     allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
     print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
     return loss.item(), outputs, x_t, injected_delay]]
