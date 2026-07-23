@@ -389,7 +389,6 @@ def main(config: TrainConfig = None) -> None:
         check_interval     = config.sleep_check_interval,
         duration_ratio     = config.sleep_duration_ratio,
         seed               = config.sleep_seed,
-        calibration_window = getattr(config, 'sleep_calibration_window', 10),
     ) if config.inject_sleep else None
 
     # ── Optional resume ───────────────────────────────────────────────────────
