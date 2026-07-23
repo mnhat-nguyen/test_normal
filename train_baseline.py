@@ -50,7 +50,7 @@ def cleanup(world_size: int) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Single training step  —  plain FP32, no AMP, no GSCM
 # ──────────────────────────────────────────────────────────────────────────────
-
+[[
 def train_step(model, inputs, targets, optimizer, criterion,
                injector=None, batch_idx=0, last_x_t=0.0, world_size=1):
     """
@@ -91,9 +91,10 @@ def train_step(model, inputs, targets, optimizer, criterion,
     # ── Backward + all_reduce + step happen AFTER the timer ──────────────────
     loss.backward()
     optimizer.step()
+    torch.cuda.synchronize()
     allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
     print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
-    return loss.item(), outputs, x_t, injected_delay
+    return loss.item(), outputs, x_t, injected_delay]]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
