@@ -137,9 +137,10 @@ def train_step(
     # the communication cost this project handles separately.
     torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
-
+#check this
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     if amp_active:
+        print(f"[SLEEP] batch {batch_idx} : sleeping for {x_t:.3f}ms ")
         scaler.scale(loss).backward()
     else:
         scaled_loss = GSCM.scale_loss(loss, global_scale)
