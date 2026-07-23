@@ -54,25 +54,25 @@ def cleanup(world_size: int) -> None:
 def train_step(model, inputs, targets, optimizer, criterion,
                injector=None, batch_idx=0, last_x_t=0.0, world_size=1):
     """
-    One full batch: forward + backward-compute + optimizer step.
+    One full batch: forward + backward + optimizer step.
 
-    X_t = COMPUTATION time (ms) only — forward + backward-compute + step +
-    injected sleep. The DDP all_reduce (network) is EXCLUDED via
-    model.no_sync() and triggered separately outside the timer, identical
-    to train.py, so both scripts' X_t measure the same thing (compute, not
-    communication). This project targets COMPUTATION stragglers.
+    X_t = COMPUTATION time (ms) only — injected sleep + forward pass.
+    The timer STOPS BEFORE loss.backward(), so the entire backward
+    (which in DDP fuses gradient compute with the all_reduce network
+    sync) is EXCLUDED from X_t. This project targets computation
+    stragglers, so X_t deliberately excludes the communication cost.
 
     Returns
     -------
-    loss_val, outputs, x_t (compute ms, excl. all_reduce), injected_delay
+    loss_val, outputs, x_t (fwd+sleep ms, excl. backward/all_reduce), injected_delay
     """
     optimizer.zero_grad()
 
-    # ── Start timer (COMPUTE only) ────────────────────────────────────────────
+    # ── Start timer ───────────────────────────────────────────────────────────
     torch.cuda.synchronize()
     t_start = time.perf_counter()
 
-    # ── Sleep injection — INSIDE the timer (matches train.py) ────────────────
+    # ── Sleep injection — INSIDE the timer ───────────────────────────────────
     injected_delay = 0.0
     if injector is not None:
         t_sleep_start  = time.perf_counter()
@@ -83,22 +83,12 @@ def train_step(model, inputs, targets, optimizer, criterion,
     outputs = model(inputs)
     loss    = criterion(outputs, targets)
 
-    # ── Backward WITHOUT all_reduce (deferred via no_sync) ───────────────────
-    sync_ctx = model.no_sync() if world_size > 1 else contextlib.nullcontext()
-    with sync_ctx:
-        loss.backward()
-
-    # ── Stop timer — X_t = compute + sleep, NO all_reduce ────────────────────
+    # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — COMPUTE only
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 
-    # ── all_reduce OUTSIDE the timer (communication, excluded from X_t) ──────
-    if world_size > 1:
-        for p in model.parameters():
-            if p.grad is not None:
-                dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)
-                p.grad /= world_size
-
+    # ── Backward + all_reduce + step happen AFTER the timer ──────────────────
+    loss.backward()
     optimizer.step()
 
     return loss.item(), outputs, x_t, injected_delay

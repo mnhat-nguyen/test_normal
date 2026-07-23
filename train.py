@@ -86,19 +86,14 @@ def train_step(
     Execute one full batch iteration and return (loss_value, outputs, X_t, injected_delay).
 
     X_t is the COMPUTATION time (ms) only:
-        sleep injection (if any) + forward + backward-compute + optimizer step
+        injected sleep (if any) + forward pass
 
-    The DDP gradient all_reduce (network communication) is DELIBERATELY
+    The timer STOPS BEFORE loss.backward(), so the entire backward — which
+    in DDP fuses gradient computation with the all_reduce network sync — is
     EXCLUDED from X_t. This project targets COMPUTATION stragglers (matching
-    Korel), not communication — so X_t must reflect compute, not the network
+    Korel), not communication, so X_t must reflect compute, not the network
     all_reduce that would otherwise dominate iteration time on a slow
-    interconnect and drown out the compute signal the detector watches.
-
-    Mechanism: model.no_sync() runs backward() locally WITHOUT firing the
-    all_reduce, so the timed region contains only gradient computation. The
-    timer stops, THEN the all_reduce is triggered manually (outside X_t) to
-    keep DDP correctness. Communication cost is handled by separate work and
-    is intentionally not measured here.
+    interconnect and drown out the signal the detector watches.
 
     Sleep is injected INSIDE the timed window so a straggler node detects its
     OWN compute stall directly in its own X_t (self-detection).
@@ -107,7 +102,7 @@ def train_step(
     -------
     loss_val        : float
     outputs         : torch.Tensor  (logits, still on device)
-    x_t             : float         (COMPUTE time in ms, incl. injected sleep, excl. all_reduce)
+    x_t             : float         (forward + injected sleep, ms; excl. backward/all_reduce)
     injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
     optimizer.zero_grad()
@@ -135,30 +130,20 @@ def train_step(
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
 
-    # ── Backward WITHOUT all_reduce (deferred via no_sync) ───────────────────
-    # no_sync() suppresses DDP's gradient all_reduce so the timed region
-    # contains gradient COMPUTE only, not the network sync.
-    sync_ctx = model.no_sync() if world_size > 1 else contextlib.nullcontext()
-    with sync_ctx:
-        if amp_active:
-            scaler.scale(loss).backward()
-        else:
-            scaled_loss = GSCM.scale_loss(loss, global_scale)
-            scaled_loss.backward()
-
-    # ── Stop timer — X_t = compute + sleep, NO all_reduce ────────────────────
+    # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
+    # X_t measures forward + injected sleep only. The entire backward (which
+    # in DDP fuses gradient compute with the all_reduce network sync) falls
+    # outside the timer, so X_t reflects computation-straggler cost without
+    # the communication cost this project handles separately.
     torch.cuda.synchronize()
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — COMPUTE only
+    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 
-    # ── all_reduce OUTSIDE the timer (communication, excluded from X_t) ──────
-    # Manually average gradients across ranks, since no_sync() suppressed the
-    # automatic DDP all_reduce above. This preserves training correctness;
-    # its cost is intentionally not part of X_t (handled by separate work).
-    if world_size > 1:
-        for p in model.parameters():
-            if p.grad is not None:
-                dist.all_reduce(p.grad, op=dist.ReduceOp.SUM)
-                p.grad /= world_size
+    # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
+    if amp_active:
+        scaler.scale(loss).backward()
+    else:
+        scaled_loss = GSCM.scale_loss(loss, global_scale)
+        scaled_loss.backward()
 
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
