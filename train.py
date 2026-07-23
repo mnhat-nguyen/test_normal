@@ -138,6 +138,7 @@ def train_step(
     torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
+    t_backward_start = time.perf_counter()
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     if amp_active:
         print(f"[SLEEP] batch {batch_idx} : x_t {x_t:.3f}ms ")
@@ -145,7 +146,8 @@ def train_step(
     else:
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-
+    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    print(f"[SLEEP] batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
         scaler.unscale_(optimizer)
