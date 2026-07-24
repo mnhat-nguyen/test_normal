@@ -323,11 +323,14 @@ def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_s
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main(config: TrainConfig = None) -> None:
-     if config is None:
+    if config is None:
         config = TrainConfig()
 
-    import torch.backends.cudnn as cudnn
-    cudnn.benchmark = True          # ← ADD THIS
+    # Autotune + cache cuDNN kernels once per input shape. Important for the
+    # AMP path: without this, cuDNN may re-select FP16 kernels repeatedly,
+    # which can add large per-batch overhead when AMP first engages. Safe
+    # here because CIFAR batch shapes are fixed ([B, 3, 32, 32]).
+    torch.backends.cudnn.benchmark = True
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
