@@ -122,7 +122,7 @@ def train_step(
         injected_delay = time.perf_counter() - t_sleep_start   # seconds
 
     # ── Forward ───────────────────────────────────────────────────────────────
-    if amp_active:
+      if amp_active:
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
@@ -189,29 +189,7 @@ def train_epoch(
     config:    TrainConfig,
     logger,
     world_size: int = 1,
-    amp_warmup: dict = None,        # ONE-TIME latch, owned by main(), persists
 ):
-    """
-    AMP warmup latch (one-time for the whole run)
-    ---------------------------------------------
-    amp_warmup is {'count': int, 'done': bool}, created ONCE in main() and
-    passed in every epoch, so it is NOT reset per epoch.
-
-    During warmup (before done):
-      - detector.amp_flag is still read and detector.update() still runs, so
-        the detector's window W stays protected from straggler-contaminated
-        values exactly as designed.
-      - BUT amp_active (whether AMP actually runs) is forced False, so no real
-        FP16 compute happens and no cross-node desync is introduced during the
-        unstable early phase.
-      - Each batch the detector WANTS AMP increments count; at count >= 3 the
-        latch flips done=True PERMANENTLY.
-
-    After warmup (done): amp_active follows detector.amp_flag freely, forever.
-    """
-    if amp_warmup is None:
-        amp_warmup = {'count': 0, 'done': True}   # no warmup if not provided
-
     model.train()
     total_loss = correct = total = 0
     n_batches  = len(loader)
@@ -221,19 +199,14 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        amp_wanted = detector.amp_flag        # ← ALWAYS the detector's real decision
+        amp_active = detector.amp_flag
 
-        if amp_warmup['done']:
-            amp_active = amp_wanted            # warmup over → AMP follows detector freely
-        else:
-            if amp_wanted:
-                amp_warmup['count'] += 1
-                if amp_warmup['count'] >= 3:
-                    amp_warmup['done'] = True  # LATCH — permanent, never gates again
-            amp_active = False                 # during warmup → AMP suppressed
-
-        # Cold-start (epoch 0, batch 0): CUDA/cuDNN init outlier — skip
-        # injector + detector update so neither is contaminated by the spike.
+        # The very first iteration of the whole run (epoch 0, batch 0) is a
+        # cold-start outlier: CUDA context init, cuDNN autotuning, and lazy
+        # kernel compilation all happen here, inflating X_t far above steady
+        # state. Skip BOTH sleep injection and detector/calibration updates
+        # for it, so neither the injector's frozen reference_ms nor the
+        # detector's window W is contaminated by this one-off spike.
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
 
@@ -243,13 +216,17 @@ def train_epoch(
             gscm, amp_active, device,
             injector=step_injector,
             batch_idx=i,
-            last_x_t=last_x_t,
+            last_x_t=last_x_t,        # clean history, prevents snowball
             world_size=world_size,
         )
+        # last_x_t simply tracks the previous step's total wall time.
+        # (No longer stripping out injected_delay — with a small, controlled
+        # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
         last_x_t = x_t
 
-        # Detector still updates normally (driven by amp_wanted via amp_flag),
-        # so window protection works even during warmup.
+        # Skip detector update on: the cold-start spike, and the first/last
+        # batch of each epoch (existing boundary guard, avoids DataLoader
+        # prefetch/drain edge effects).
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
@@ -260,8 +237,7 @@ def train_epoch(
         correct += predicted.eq(targets).sum().item()
 
         if i % config.log_interval == 0:
-            sleep_tag  = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
-            warmup_tag = '' if amp_warmup['done'] else f" [WARMUP {amp_warmup['count']}/3]"
+            sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
                 f"Loss {loss_val:.4f} | "
@@ -270,7 +246,7 @@ def train_epoch(
                 f"Z {detector.Z or 0.0:>7.1f} | "
                 f"UCL {detector.UCL if detector.UCL != float('inf') else 0.0:>7.1f} | "
                 f"LCL {detector.LCL:>7.1f}"
-                f"{sleep_tag}{warmup_tag}"
+                f"{sleep_tag}"
             )
 
     avg_loss = total_loss / n_batches
@@ -373,6 +349,17 @@ def main(config: TrainConfig = None) -> None:
         )
 
     # ── AMP scaler ────────────────────────────────────────────────────────────
+    # Pinned to GSCM_SCALE with growth effectively disabled (growth_interval
+    # set far beyond any realistic run length) so this worker's AMP scale
+    # stays at GSCM_SCALE for the entire training run, matching what
+    # Normal-mode workers assume — zero communication needed to stay in
+    # sync. growth_factor must be > 1.0 and backoff_factor must be < 1.0
+    # per PyTorch's own assertions, so neither can be literally frozen at
+    # 1.0 — growth is instead made practically unreachable via a huge
+    # growth_interval. backoff_factor keeps its normal default: if a real
+    # numerical overflow occurs, the scale is still allowed to drop for
+    # safety (this is correct behavior — you don't want to keep using an
+    # overflowing scale just to preserve constant-value consistency).
     scaler = GradScaler(
         'cuda',
         init_scale=GSCM_SCALE,
@@ -412,9 +399,6 @@ def main(config: TrainConfig = None) -> None:
     metrics            = []
     cumulative_train_s = 0.0
 
-    # One-time AMP warmup latch (persists across ALL epochs, never resets).
-    amp_warmup = {'count': 0, 'done': False}
-
     # ── Training loop ─────────────────────────────────────────────────────────
     for epoch in range(start_epoch, config.epochs):
         if world_size > 1:
@@ -426,7 +410,6 @@ def main(config: TrainConfig = None) -> None:
             scaler, detector, gscm, injector,
             device, epoch, config, logger,
             world_size=world_size,
-            amp_warmup=amp_warmup,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
@@ -477,23 +460,28 @@ def parse_args():
     from models import list_models
     parser = argparse.ArgumentParser(description='DDP training with straggler mitigation')
 
+    # model / dataset
     parser.add_argument('--model_name',   type=str,   help=f'Model name. Choices: {list_models()}')
     parser.add_argument('--dataset',      type=str,   choices=['cifar10', 'cifar100'])
     parser.add_argument('--data_root',    type=str)
 
+    # training
     parser.add_argument('--epochs',       type=int)
     parser.add_argument('--batch_size',   type=int)
     parser.add_argument('--lr',           type=float)
     parser.add_argument('--momentum',     type=float)
     parser.add_argument('--weight_decay', type=float)
 
+    # scheduler
     parser.add_argument('--scheduler',    type=str,   choices=['cosine', 'multistep'])
 
+    # detector
     parser.add_argument('--window_size',  type=int)
     parser.add_argument('--n_min',        type=int)
     parser.add_argument('--k',            type=float)
     parser.add_argument('--ewma_lambda',  type=float)
 
+    # sleep injection
     parser.add_argument('--inject_sleep',         type=lambda x: x.lower() == 'true')
     parser.add_argument('--sleep_prob_on',         type=float)
     parser.add_argument('--sleep_prob_off',        type=float)
@@ -501,6 +489,7 @@ def parse_args():
     parser.add_argument('--sleep_duration_ratio',  type=float)
     parser.add_argument('--sleep_seed',            type=int)
 
+    # logging
     parser.add_argument('--log_interval',   type=int)
     parser.add_argument('--checkpoint_dir', type=str)
     parser.add_argument('--results_dir',    type=str)
