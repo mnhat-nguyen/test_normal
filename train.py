@@ -170,83 +170,18 @@ def train_step(
 # Train one epoch
 # ──────────────────────────────────────────────────────────────────────────────
 
-def train_epoch(
-    model,
-    loader,
-    optimizer,
-    criterion,
-    scaler:    GradScaler,
-    detector:  StraglerDetector,
-    gscm:      GSCM,
-    injector,                       # SleepInjector | None
-    device:    torch.device,
-    epoch:     int,
-    config:    TrainConfig,
-    logger,
-    world_size: int = 1,
-):
-    model.train()
-    total_loss = correct = total = 0
-    n_batches  = len(loader)
-    last_x_t   = 0.0
+amp_wanted = detector.amp_flag        # ← ALWAYS the detector's real decision
 
-    for i, (inputs, targets) in enumerate(loader):
-        inputs  = inputs.to(device,  non_blocking=True)
-        targets = targets.to(device, non_blocking=True)
+if amp_warmup['done']:
+    amp_active = amp_wanted            # warmup over → AMP follows detector freely
+else:
+    if amp_wanted:
+        amp_warmup['count'] += 1
+        if amp_warmup['count'] >= 3:
+            amp_warmup['done'] = True  # LATCH — permanent, never gates again
+    amp_active = False                 # during warmup → AMP suppressed
 
-        amp_active = detector.amp_flag
-
-        # The very first iteration of the whole run (epoch 0, batch 0) is a
-        # cold-start outlier: CUDA context init, cuDNN autotuning, and lazy
-        # kernel compilation all happen here, inflating X_t far above steady
-        # state. Skip BOTH sleep injection and detector/calibration updates
-        # for it, so neither the injector's frozen reference_ms nor the
-        # detector's window W is contaminated by this one-off spike.
-        is_cold_start = (epoch == 0 and i == 0)
-        step_injector = None if is_cold_start else injector
-
-        loss_val, outputs, x_t, injected_delay = train_step(
-            model, inputs, targets,
-            optimizer, criterion, scaler,
-            gscm, amp_active, device,
-            injector=step_injector,
-            batch_idx=i,
-            last_x_t=last_x_t,        # clean history, prevents snowball
-            world_size=world_size,
-        )
-        # last_x_t simply tracks the previous step's total wall time.
-        # (No longer stripping out injected_delay — with a small, controlled
-        # sleep_duration_ratio this won't snowball, and it keeps the code simpler.)
-        last_x_t = x_t
-
-        # Skip detector update on: the cold-start spike, and the first/last
-        # batch of each epoch (existing boundary guard, avoids DataLoader
-        # prefetch/drain edge effects).
-        is_boundary = (i == 0) or (i == n_batches - 1)
-        if not is_boundary and not is_cold_start:
-            detector.update(x_t)   # full x_t, sleep included
-
-        total_loss += loss_val
-        _, predicted = outputs.max(1)
-        total   += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-        if i % config.log_interval == 0:
-            sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
-            logger.info(
-                f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
-                f"Loss {loss_val:.4f} | "
-                f"AMP {'ON ' if amp_active else 'OFF'} | "
-                f"X_t {x_t:>7.1f} ms | "
-                f"Z {detector.Z or 0.0:>7.1f} | "
-                f"UCL {detector.UCL if detector.UCL != float('inf') else 0.0:>7.1f} | "
-                f"LCL {detector.LCL:>7.1f}"
-                f"{sleep_tag}"
-            )
-
-    avg_loss = total_loss / n_batches
-    accuracy = 100.0 * correct / total
-    return avg_loss, accuracy
+detector.update(x_t)                   #
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -309,6 +244,8 @@ def main(config: TrainConfig = None) -> None:
     setup(rank, world_size, config)
     device = torch.device('cuda:0')
     logger = get_logger(rank)
+    amp_warmup = {'count': 0, 'done': False}
+
 
     logger.info(f"Worker {rank}/{world_size} ready  |  device={device}")
 
