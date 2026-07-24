@@ -244,8 +244,6 @@ def main(config: TrainConfig = None) -> None:
     setup(rank, world_size, config)
     device = torch.device('cuda:0')
     logger = get_logger(rank)
-    amp_warmup = {'count': 0, 'done': False}
-
 
     logger.info(f"Worker {rank}/{world_size} ready  |  device={device}")
 
@@ -331,6 +329,11 @@ def main(config: TrainConfig = None) -> None:
     metrics            = []
     cumulative_train_s = 0.0
 
+    # One-time AMP warmup latch (persists across ALL epochs, never resets).
+    # Suppresses real AMP use until the detector has wanted it 3 times total;
+    # after that it latches done=True and AMP follows the detector freely.
+    amp_warmup = {'count': 0, 'done': False}
+
     # ── Training loop ─────────────────────────────────────────────────────────
     for epoch in range(start_epoch, config.epochs):
         if world_size > 1:
@@ -342,6 +345,7 @@ def main(config: TrainConfig = None) -> None:
             scaler, detector, gscm, injector,
             device, epoch, config, logger,
             world_size=world_size,
+            amp_warmup=amp_warmup,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
