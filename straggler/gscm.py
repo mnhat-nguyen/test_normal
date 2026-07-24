@@ -61,7 +61,7 @@ from typing import Optional
 
 # Shared fixed scale — every worker (AMP or Normal) already knows this
 # value without any runtime negotiation. This IS "S" from the paper.
-GSCM_SCALE: float = 65536.0   # 2**16, matches AMP's typical initial scale
+GSCM_SCALE: float = 1024  #65536.0   # 2**16, matches AMP's typical initial scale
 
 
 class GSCM:
