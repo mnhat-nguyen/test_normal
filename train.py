@@ -122,7 +122,8 @@ def train_step(
         injected_delay = time.perf_counter() - t_sleep_start   # seconds
 
     # ── Forward ───────────────────────────────────────────────────────────────
-      if amp_active:
+    if amp_active:
+        if 
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
@@ -135,7 +136,7 @@ def train_step(
     # in DDP fuses gradient compute with the all_reduce network sync) falls
     # outside the timer, so X_t reflects computation-straggler cost without
     # the communication cost this project handles separately.
-    
+    torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
     t_backward_start = time.perf_counter()
@@ -146,28 +147,23 @@ def train_step(
     else:
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-
     allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
-    t_scaler_start = time.perf_counter()
-
+    
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
         scaler.unscale_(optimizer)
     else:
         GSCM.unscale_gradients(model, global_scale)
-    t_scaler = (time.perf_counter() - t_scaler_start) * 1000.0 #scaler time
-    t_optimizer_start = time.perf_counter()
+
     # ── Optimizer step ────────────────────────────────────────────────────────
     if amp_active:
         scaler.step(optimizer)
         scaler.update()
     else:
         optimizer.step()
-    t_optimizer = (time.perf_counter() - t_optimizer_start) * 1000.0 #optimizer time
-    torch.cuda.synchronize()
+    
+    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
     print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
-    print(f" batch {batch_idx} : scaler {t_scaler:.3f}ms ")
-    print(f" batch {batch_idx} : optimizer {t_optimizer:.3f}ms ")
     return loss.item(), outputs, x_t, injected_delay
 
 
