@@ -111,7 +111,7 @@ def train_step(
     global_scale = gscm.sync_scale(amp_active, scaler if amp_active else None)
 
     # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
-    torch.cuda.synchronize()
+    
     t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
@@ -165,7 +165,7 @@ def train_step(
     else:
         optimizer.step()
     optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0   # optimizer step
-    
+    torch.cuda.synchronize()
     print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
     # print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
     return loss.item(), outputs, x_t, injected_delay
