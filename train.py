@@ -147,22 +147,26 @@ def train_step(
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
 
+    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    t_scaler_start = time.perf_counter()
 
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
         scaler.unscale_(optimizer)
     else:
         GSCM.unscale_gradients(model, global_scale)
-
+    t_scaler = (time.perf_counter() - t_scaler_start) * 1000.0 #scaler time
+    t_optimizer_start = time.perf_counter()
     # ── Optimizer step ────────────────────────────────────────────────────────
     if amp_active:
         scaler.step(optimizer)
         scaler.update()
     else:
         optimizer.step()
-
-    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    t_optimizer = (time.perf_counter() - t_optimizer_start) * 1000.0 #optimizer time
     print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
+    print(f" batch {batch_idx} : scaler {t_scaler:.3f}ms ")
+    print(f" batch {batch_idx} : optimizer {t_optimizer:.3f}ms ")
     return loss.item(), outputs, x_t, injected_delay
 
 
