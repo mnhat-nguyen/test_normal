@@ -53,7 +53,7 @@ class TrainConfig:
 
     # ── Straggler Detection ───────────────────────────────────────────────────
     window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 30))
-    n_min:        int   = field(default_factory=lambda: _env('N_MIN',       20))
+    n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
     k:            float = field(default_factory=lambda: _env('K',           2.5))
     ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.1))
 
