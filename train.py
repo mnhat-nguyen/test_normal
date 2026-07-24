@@ -142,7 +142,7 @@ def train_step(
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-
+    torch.cuda.synchronize()
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
