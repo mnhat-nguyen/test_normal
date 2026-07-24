@@ -323,8 +323,11 @@ def load_checkpoint(path, model, optimizer, scheduler, detector, scaler, world_s
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main(config: TrainConfig = None) -> None:
-    if config is None:
+     if config is None:
         config = TrainConfig()
+
+    import torch.backends.cudnn as cudnn
+    cudnn.benchmark = True          # ← ADD THIS
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
