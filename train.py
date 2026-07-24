@@ -120,10 +120,9 @@ def train_step(
         t_sleep_start  = time.perf_counter()
         injector.maybe_sleep(batch_idx, last_x_t)   # last_x_t is clean, no snowball
         injected_delay = time.perf_counter() - t_sleep_start   # seconds
-
+    
     # ── Forward ───────────────────────────────────────────────────────────────
     if amp_active:
-        if 
         with autocast('cuda'):
             outputs = model(inputs)
             loss    = criterion(outputs, targets)
@@ -147,7 +146,7 @@ def train_step(
     else:
         scaled_loss = GSCM.scale_loss(loss, global_scale)
         scaled_loss.backward()
-    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    
     
     # ── Unscale ───────────────────────────────────────────────────────────────
     if amp_active:
