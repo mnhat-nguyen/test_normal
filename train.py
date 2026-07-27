@@ -148,7 +148,8 @@ def train_step(
 #check this
     if amp_active:
         print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
-
+    else:
+        print(f"amp off batch {batch_idx} : x_t {x_t:.3f}ms ")
     t_backward_start = time.perf_counter()
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     # Identical for AMP and Normal now: scale loss by the fixed GSCM scale,
