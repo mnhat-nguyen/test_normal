@@ -378,7 +378,7 @@ def main(config: TrainConfig = None) -> None:
     # AMP path: without this, cuDNN may re-select FP16 kernels repeatedly,
     # which can add large per-batch overhead when AMP first engages. Safe
     # here because CIFAR batch shapes are fixed ([B, 3, 32, 32]).
-    torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.benchmark = True
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
