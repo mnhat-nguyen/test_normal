@@ -212,7 +212,7 @@ def train_epoch(
         step_injector = None if is_cold_start else injector
         t_step_start = time.perf_counter()
         #claude read and anylyze this: "big congested point is here, dont need world size, giving the reinit the same model and optimizer cost a lot of time, so we need to avoid that, and we can just use the same model and optimizer for each step"
-        outputs, x_t, injected_delay = train_step(
+        loss, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
             gscm, amp_active, device,
