@@ -171,13 +171,13 @@ def train_step(
     t_loss = time.perf_counter()
     loss=loss.detach()
     t_loss_ms = (time.perf_counter() - t_loss) * 1000.0
-    print(f"batch {batch_idx} : loss detach {t_loss_ms:.3f}ms ")
+    print(f"batch {batch_idx} : loss detach {t_loss_ms:.3f
     print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
     # Return the loss TENSOR (not .item()) so the caller can accumulate it
     # on-GPU. Calling .item() here forces a CPU-GPU sync that blocks on the
     # in-flight async all_reduce (~1200ms on 1Gbps); deferring it to epoch
     # end avoids that sync on every batch.
-    return , outputs, x_t, injected_delay
+    return loss, outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
