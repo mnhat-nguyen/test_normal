@@ -118,13 +118,14 @@ def train_step(
     x_t             : float         (forward + injected sleep, ms; excl. backward/all_reduce)
     injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
+    t_start = time.perf_counter()
     optimizer.zero_grad()
 
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
     global_scale = gscm.sync_scale(amp_active, None)
 
     # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
-    # torch.cuda.synchronize()
+    torch.cuda.synchronize()
     t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
