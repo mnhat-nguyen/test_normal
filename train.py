@@ -169,10 +169,11 @@ def train_step(
     t_optimizer_start = time.perf_counter()
     # ── Optimizer step (plain — no GradScaler, so no forced CPU-GPU sync) ────
     optimizer.step()
-    optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0   # optimizer step
-
+       # optimizer step
+    loss = loss.item()
+    optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0
     print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
-    return loss.item(), outputs, x_t, injected_delay
+    return loss, outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
