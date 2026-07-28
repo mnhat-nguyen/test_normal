@@ -230,7 +230,7 @@ def train_epoch(
             detector.update(x_t)   # full x_t, sleep included
 
         t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
-        
+        # total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
@@ -248,9 +248,9 @@ def train_epoch(
                 f"{sleep_tag}"
             )
 
-    
+    avg_loss = loss.item() / n_batches
     accuracy = 100.0 * correct / total
-    return accuracy
+    return avg_loss, accuracy
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -409,7 +409,7 @@ def main(config: TrainConfig = None) -> None:
             injector.set_epoch(epoch)
 
         epoch_t0 = time.perf_counter()
-        train_acc = train_epoch(
+        train_loss, train_acc = train_epoch(
             model, train_loader, optimizer, criterion,
             detector, gscm, injector,
             device, epoch, config, logger,
@@ -423,7 +423,7 @@ def main(config: TrainConfig = None) -> None:
         metrics.append({
             'epoch':              epoch,
             'cumulative_train_s': round(cumulative_train_s, 3),
-            # 'train_loss':         round(train_loss, 6),
+            'train_loss':         round(train_loss, 6),
             'train_acc':          round(train_acc,  4),
             'test_loss':          round(test_loss,  6),
             'test_acc':           round(test_acc,   4),
@@ -431,8 +431,7 @@ def main(config: TrainConfig = None) -> None:
 
         logger.info(
             f"── Epoch {epoch:>3d} summary  "
-            #f"train_loss={train_loss:.4f}  
-            f"train_acc={train_acc:.2f}%  "
+            f"train_loss={train_loss:.4f}  train_acc={train_acc:.2f}%  "
             f"test_loss={test_loss:.4f}  test_acc={test_acc:.2f}%  "
             f"lr={scheduler.get_last_lr()[0]:.5f}  "
             f"total_train_time={cumulative_train_s:.1f}s"
