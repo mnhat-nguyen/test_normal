@@ -251,7 +251,7 @@ def train_epoch(
 
     # Gradient-accumulation group size (N). all_reduce + optimizer step fire
     # once per N micro-batches → ~N× less network communication.
-    accum_steps = getattr(config, 'accum_steps', 4)
+    accum_steps = getattr(config, 'accum_steps', 8)
 
     total_loss_t = torch.zeros((), device=device)
     correct_t    = torch.zeros((), device=device)
@@ -275,7 +275,7 @@ def train_epoch(
         # Nth batch, or the very last batch of the epoch. Only then do we sync
         # (all_reduce) and take an optimizer step.
         is_group_end = ((i + 1) % accum_steps == 0) or (i == n_batches - 1)
-
+        t_step_start = time.perf_counter()
         loss_t, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
@@ -289,7 +289,8 @@ def train_epoch(
             accum_steps=accum_steps,
         )
         last_x_t = x_t
-
+        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
+        print(f"batch {i} : total step time {t_step_ms:.3f}ms ")
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
@@ -377,7 +378,7 @@ def main(config: TrainConfig = None) -> None:
     # AMP path: without this, cuDNN may re-select FP16 kernels repeatedly,
     # which can add large per-batch overhead when AMP first engages. Safe
     # here because CIFAR batch shapes are fixed ([B, 3, 32, 32]).
-    torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.benchmark = True
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))

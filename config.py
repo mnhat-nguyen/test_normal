@@ -45,7 +45,7 @@ class TrainConfig:
     # Gradient accumulation: all_reduce + optimizer step fire once per this
     # many micro-batches → ~N× less network communication. Effective batch
     # size = batch_size × accum_steps × world_size.
-    accum_steps:  int   = field(default_factory=lambda: _env('ACCUM_STEPS',  4))
+    accum_steps:  int   = field(default_factory=lambda: _env('ACCUM_STEPS',  8))
     lr:           float = field(default_factory=lambda: _env('LR',           0.1))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
     weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
