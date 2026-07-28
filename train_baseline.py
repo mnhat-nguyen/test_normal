@@ -70,7 +70,7 @@ def train_step(model, inputs, targets, optimizer, criterion,
     optimizer.zero_grad()
 
     # ── Start timer ───────────────────────────────────────────────────────────
-    torch.cuda.synchronize()
+    
     
 
     # ── Sleep injection — INSIDE the timer ───────────────────────────────────
@@ -83,7 +83,7 @@ def train_step(model, inputs, targets, optimizer, criterion,
     # ── Forward ───────────────────────────────────────────────────────────────
     outputs = model(inputs)
     loss    = criterion(outputs, targets)
-
+    torch.cuda.synchronize()
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     # torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
