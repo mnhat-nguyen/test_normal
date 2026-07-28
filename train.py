@@ -169,11 +169,10 @@ def train_step(
     t_optimizer_start = time.perf_counter()
     # ── Optimizer step (plain — no GradScaler, so no forced CPU-GPU sync) ────
     optimizer.step()
-       # optimizer step
-    loss = loss.item()
-    optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0
+    optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0   # optimizer step
+    
     print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
-    return loss, outputs, x_t, injected_delay
+    return  outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -231,7 +230,7 @@ def train_epoch(
             detector.update(x_t)   # full x_t, sleep included
 
         t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
-        total_loss += loss_val
+        # total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
@@ -249,9 +248,9 @@ def train_epoch(
                 f"{sleep_tag}"
             )
 
-    avg_loss = total_loss / n_batches
+    
     accuracy = 100.0 * correct / total
-    return avg_loss, accuracy
+    return loss.item(), accuracy
 
 
 # ──────────────────────────────────────────────────────────────────────────────
