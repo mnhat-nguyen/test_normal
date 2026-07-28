@@ -40,12 +40,8 @@ class TrainConfig:
     num_workers:  int = field(default_factory=lambda: _env('NUM_WORKERS', 4))
 
     # ── Training ──────────────────────────────────────────────────────────────
-    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       50))
+    epochs:       int   = field(default_factory=lambda: _env('EPOCHS',       20))
     batch_size:   int   = field(default_factory=lambda: _env('BATCH_SIZE',   256))
-    # Gradient accumulation: all_reduce + optimizer step fire once per this
-    # many micro-batches → ~N× less network communication. Effective batch
-    # size = batch_size × accum_steps × world_size.
-    accum_steps:  int   = field(default_factory=lambda: _env('ACCUM_STEPS',  8))
     lr:           float = field(default_factory=lambda: _env('LR',           0.1))
     momentum:     float = field(default_factory=lambda: _env('MOMENTUM',     0.9))
     weight_decay: float = field(default_factory=lambda: _env('WEIGHT_DECAY', 5e-4))
@@ -59,23 +55,15 @@ class TrainConfig:
     window_size:  int   = field(default_factory=lambda: _env('WINDOW_SIZE', 30))
     n_min:        int   = field(default_factory=lambda: _env('N_MIN',       10))
     k:            float = field(default_factory=lambda: _env('K',           2.5))
-    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.15))
+    ewma_lambda:  float = field(default_factory=lambda: _env('EWMA_LAMBDA', 0.1))
 
     # ── Sleep injection ───────────────────────────────────────────────────────
     inject_sleep:         bool  = field(default_factory=lambda: _env('INJECT_SLEEP',         True))
     sleep_prob_on:        float = field(default_factory=lambda: _env('SLEEP_PROB_ON',        0.50))
     sleep_prob_off:       float = field(default_factory=lambda: _env('SLEEP_PROB_OFF',       0.35))
     sleep_check_interval: int   = field(default_factory=lambda: _env('SLEEP_CHECK_INTERVAL', 10))
-    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.08))
-    # FIXED absolute sleep per straggle batch (ms). Used instead of
-    # duration_ratio so BOTH train.py and baseline inject identical sleep,
-    # making the speedup comparison fair (see sleep_injector.py).
-    sleep_ms:             float = field(default_factory=lambda: _env('SLEEP_MS', 500.0))
+    sleep_duration_ratio: float = field(default_factory=lambda: _env('SLEEP_DURATION_RATIO', 0.5))
     sleep_seed:           int   = field(default_factory=lambda: _env('SLEEP_SEED',           42))
-    # Number of clean (non-sleeping) iterations used to calibrate the FROZEN
-    # reference_ms that sleep duration is based on — see sleep_injector.py.
-    # Must be reached before any sleep event can have a real duration.
-    sleep_calibration_window: int = field(default_factory=lambda: _env('SLEEP_CALIBRATION_WINDOW', 10))
 
     # ── Logging / Checkpointing ───────────────────────────────────────────────
     log_interval:     int           = field(default_factory=lambda: _env('LOG_INTERVAL', 20))
