@@ -229,7 +229,7 @@ def train_epoch(
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
 
-        t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
+        
         # total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
@@ -247,8 +247,10 @@ def train_epoch(
                 f"LCL {detector.LCL:>7.1f}"
                 f"{sleep_tag}"
             )
-
+    t_loss_start = time.perf_counter()
     avg_loss = loss.item() / n_batches
+    t_loss_ms = (time.perf_counter() - t_loss_start) * 1000.0
+    print(f"epoch {epoch} : loss computation {t_loss_ms:.3f}ms ")
     accuracy = 100.0 * correct / total
     return avg_loss, accuracy
 
