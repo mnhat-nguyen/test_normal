@@ -229,7 +229,7 @@ def train_epoch(
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
 
-        
+        t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
         # total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
