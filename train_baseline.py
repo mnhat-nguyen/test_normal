@@ -112,6 +112,8 @@ def train_epoch(model, loader, optimizer, criterion,
         inputs  = inputs.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        t_step_start = time.perf_counter()
+
         # Cold-start skip (epoch 0, batch 0): CUDA/cuDNN init outlier — don't
         # let it feed the injector. Handled by passing injector=None for it.
         is_cold_start = (epoch == 0 and i == 0)
@@ -131,7 +133,10 @@ def train_epoch(model, loader, optimizer, criterion,
 
         # Strip injected sleep so the injector's feedback stays clean —
         # identical to train.py, prevents sleep-duration snowball.
+
         last_x_t = x_t - (injected_delay * 1000.0)
+        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
+        print(f"batch {i} : total step {t_step_ms:.3f}ms ")
 
         total_loss += loss_val
         _, predicted = outputs.max(1)

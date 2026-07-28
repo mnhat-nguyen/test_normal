@@ -124,6 +124,7 @@ def train_step(
     global_scale = gscm.sync_scale(amp_active, None)
 
     # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
+    torch.cuda.synchronize()
     t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
@@ -142,7 +143,7 @@ def train_step(
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-    torch.cuda.synchronize()
+    
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
@@ -200,12 +201,14 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
+        t_step_start = time.perf_counter()
+
         amp_active = detector.amp_flag        # AMP follows the detector directly
 
         # Cold-start (epoch 0, batch 0): CUDA/cuDNN init outlier — skip
         # injector + detector update so neither is contaminated by the spike.
-        is_cold_start = (epoch == 0 and i == 0)
-        step_injector = None if is_cold_start else injector
+        # is_cold_start = (epoch == 0 and i == 0)
+        # step_injector = None if is_cold_start else injector
 
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
@@ -218,15 +221,18 @@ def train_epoch(
         )
         last_x_t = x_t
 
-        is_boundary = (i == 0) or (i == n_batches - 1)
-        if not is_boundary and not is_cold_start:
-            detector.update(x_t)   # full x_t, sleep included
+        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
+        t_update_start = time.perf_counter()
+        # is_boundary = (i == 0) or (i == n_batches - 1)
+        # if not is_boundary and not is_cold_start:
+        detector.update(x_t)   # full x_t, sleep included
 
+        t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
         total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
-
+        print(f"batch {i} : detector update {t_update_ms:.3f}ms  |  total step {t_step_ms:.3f}ms ")
         if i % config.log_interval == 0:
             sleep_tag  = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
@@ -394,7 +400,7 @@ def main(config: TrainConfig = None) -> None:
     for epoch in range(start_epoch, config.epochs):
         if world_size > 1:
             train_loader.sampler.set_epoch(epoch)
-            
+
         # Keep the replay injector's epoch in sync so its (epoch:batch)
         # lookup matches baseline's recording. No-op for the live injector.
         if isinstance(injector, ReplaySleepInjector):
