@@ -197,7 +197,7 @@ def train_epoch(
     total_loss = correct = total = 0
     n_batches  = len(loader)
     last_x_t   = 0.0
-
+    t_loss_start = time.perf_counter()
     for i, (inputs, targets) in enumerate(loader):
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
@@ -247,10 +247,10 @@ def train_epoch(
                 f"LCL {detector.LCL:>7.1f}"
                 f"{sleep_tag}"
             )
-    t_loss_start = time.perf_counter()
+    
     avg_loss = loss.item() / n_batches
     t_loss_ms = (time.perf_counter() - t_loss_start) * 1000.0
-    print(f"epoch {epoch} : loss computation {t_loss_ms:.3f}ms ")
+    print(f"epoch {epoch} : computation {t_loss_ms:.3f}ms ")
     accuracy = 100.0 * correct / total
     return avg_loss, accuracy
 
