@@ -201,7 +201,7 @@ def train_epoch(
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        t_step_start = time.perf_counter()
+        
 
         amp_active = detector.amp_flag        # AMP follows the detector directly
 
@@ -209,7 +209,7 @@ def train_epoch(
         # injector + detector update so neither is contaminated by the spike.
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
-
+        t_step_start = time.perf_counter()
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
