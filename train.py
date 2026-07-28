@@ -275,7 +275,7 @@ def train_epoch(
         # Nth batch, or the very last batch of the epoch. Only then do we sync
         # (all_reduce) and take an optimizer step.
         is_group_end = ((i + 1) % accum_steps == 0) or (i == n_batches - 1)
-
+        t_step_start = time.perf_counter()
         loss_t, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
@@ -289,7 +289,8 @@ def train_epoch(
             accum_steps=accum_steps,
         )
         last_x_t = x_t
-
+        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
+        print(f"batch {i} : total step {t_step_ms:.3f}ms ") 
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
