@@ -207,8 +207,8 @@ def train_epoch(
 
         # Cold-start (epoch 0, batch 0): CUDA/cuDNN init outlier — skip
         # injector + detector update so neither is contaminated by the spike.
-        # is_cold_start = (epoch == 0 and i == 0)
-        # step_injector = None if is_cold_start else injector
+        is_cold_start = (epoch == 0 and i == 0)
+        step_injector = None if is_cold_start else injector
 
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
@@ -223,9 +223,9 @@ def train_epoch(
 
         t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
         t_update_start = time.perf_counter()
-        # is_boundary = (i == 0) or (i == n_batches - 1)
-        # if not is_boundary and not is_cold_start:
-        detector.update(x_t)   # full x_t, sleep included
+        is_boundary = (i == 0) or (i == n_batches - 1)
+        if not is_boundary and not is_cold_start:
+            detector.update(x_t)   # full x_t, sleep included
 
         t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
         total_loss += loss_val
