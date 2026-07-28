@@ -118,14 +118,12 @@ def train_step(
     x_t             : float         (forward + injected sleep, ms; excl. backward/all_reduce)
     injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
-    t_start = time.perf_counter()
     optimizer.zero_grad()
 
     # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
     global_scale = gscm.sync_scale(amp_active, None)
 
     # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
-    torch.cuda.synchronize()
     t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
@@ -170,9 +168,13 @@ def train_step(
     # ── Optimizer step (plain — no GradScaler, so no forced CPU-GPU sync) ────
     optimizer.step()
     optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0   # optimizer step
-    
+
     print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
-    return  outputs, x_t, injected_delay
+    # Return the loss TENSOR (not .item()) so the caller can accumulate it
+    # on-GPU. Calling .item() here forces a CPU-GPU sync that blocks on the
+    # in-flight async all_reduce (~1200ms on 1Gbps); deferring it to epoch
+    # end avoids that sync on every batch.
+    return loss.detach(), outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -194,15 +196,20 @@ def train_epoch(
     world_size: int = 1,
 ):
     model.train()
-    total_loss = correct = total = 0
     n_batches  = len(loader)
     last_x_t   = 0.0
+
+    # Accumulate on-GPU to avoid per-batch CPU-GPU syncs. Calling .item() /
+    # .sum().item() every batch forces a sync that blocks on the in-flight
+    # async all_reduce (~1200ms on 1Gbps). We keep running totals as GPU
+    # tensors and only move them to CPU at epoch end (and at log points).
+    total_loss_t = torch.zeros((), device=device)
+    correct_t    = torch.zeros((), device=device)
+    total        = 0
 
     for i, (inputs, targets) in enumerate(loader):
         inputs  = inputs.to(device,  non_blocking=True)
         targets = targets.to(device, non_blocking=True)
-
-        
 
         amp_active = detector.amp_flag        # AMP follows the detector directly
 
@@ -211,8 +218,7 @@ def train_epoch(
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
         t_step_start = time.perf_counter()
-        #claude read and anylyze this: "big congested point is here, dont need world size, giving the reinit the same model and optimizer cost a lot of time, so we need to avoid that, and we can just use the same model and optimizer for each step"
-        loss_val, outputs, x_t, injected_delay = train_step(
+        loss_t, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
             gscm, amp_active, device,
@@ -222,24 +228,25 @@ def train_epoch(
             world_size=world_size,
         )
         last_x_t = x_t
-
         t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
-        t_update_start = time.perf_counter()
+        print(f"batch {i} : total step time {t_step_ms:.3f}ms ")
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
 
-        t_update_ms = (time.perf_counter() - t_update_start) * 1000.0
-        # total_loss += loss_val
+        # Accumulate on-GPU — NO .item() here, so no forced sync per batch.
+        total_loss_t += loss_t
         _, predicted = outputs.max(1)
-        total   += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-        print(f"batch {i} : detector update {t_update_ms:.3f}ms  |  total step {t_step_ms:.3f}ms ")
+        total       += targets.size(0)
+        correct_t   += predicted.eq(targets).sum()
+
         if i % config.log_interval == 0:
+            # Only sync at log points (every log_interval batches), not every
+            # batch — .item() here forces one sync, but it's infrequent.
             sleep_tag  = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
-                f"Loss {loss_val:.4f} | "
+                f"Loss {loss_t.item():.4f} | "
                 f"AMP {'ON ' if amp_active else 'OFF'} | "
                 f"X_t {x_t:>7.1f} ms | "
                 f"Z {detector.Z or 0.0:>7.1f} | "
@@ -248,9 +255,10 @@ def train_epoch(
                 f"{sleep_tag}"
             )
 
-    
-    accuracy = 100.0 * correct / total
-    return loss.item(), accuracy
+    # Single sync at epoch end — move the GPU-accumulated totals to CPU once.
+    avg_loss = (total_loss_t / n_batches).item()
+    accuracy = 100.0 * (correct_t.item() / total)
+    return avg_loss, accuracy
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -309,7 +317,7 @@ def main(config: TrainConfig = None) -> None:
     # AMP path: without this, cuDNN may re-select FP16 kernels repeatedly,
     # which can add large per-batch overhead when AMP first engages. Safe
     # here because CIFAR batch shapes are fixed ([B, 3, 32, 32]).
-    # torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = True
 
     rank       = int(os.environ.get('RANK',       0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))

@@ -66,12 +66,11 @@ def train_step(model, inputs, targets, optimizer, criterion,
     -------
     loss_val, outputs, x_t (fwd+sleep ms, excl. backward/all_reduce), injected_delay
     """
-    t_start = time.perf_counter()
     optimizer.zero_grad()
 
     # ── Start timer ───────────────────────────────────────────────────────────
     torch.cuda.synchronize()
-    
+    t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer ───────────────────────────────────
     injected_delay = 0.0
@@ -85,16 +84,16 @@ def train_step(model, inputs, targets, optimizer, criterion,
     loss    = criterion(outputs, targets)
 
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
-    # torch.cuda.synchronize()
+    torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
-    t_backward_start = time.perf_counter()
-    print(f"batch {batch_idx} : x_t {x_t:.3f}ms ")
+
     # ── Backward + all_reduce + step happen AFTER the timer ──────────────────
     loss.backward()
     optimizer.step()
-    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
-    print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
-    return loss.item(), outputs, x_t, injected_delay
+
+    # Return loss TENSOR (not .item()) — same as train.py, avoids per-batch
+    # CPU-GPU sync that would block on the async all_reduce.
+    return loss.detach(), outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -105,7 +104,9 @@ def train_epoch(model, loader, optimizer, criterion,
                 injector, device, epoch, config, logger, world_size=1,
                 sleep_log=None):
     model.train()
-    total_loss = correct = total = 0
+    total_loss_t = None   # set to GPU zero tensor on first batch
+    correct_t    = None
+    total        = 0
     n_batches  = len(loader)
     last_x_t   = 0.0
 
@@ -113,14 +114,12 @@ def train_epoch(model, loader, optimizer, criterion,
         inputs  = inputs.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        t_step_start = time.perf_counter()
-
         # Cold-start skip (epoch 0, batch 0): CUDA/cuDNN init outlier — don't
         # let it feed the injector. Handled by passing injector=None for it.
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
 
-        loss_val, outputs, x_t, injected_delay = train_step(
+        loss_t, outputs, x_t, injected_delay = train_step(
             model, inputs, targets, optimizer, criterion,
             injector=step_injector,
             batch_idx=i,
@@ -134,26 +133,30 @@ def train_epoch(model, loader, optimizer, criterion,
 
         # Strip injected sleep so the injector's feedback stays clean —
         # identical to train.py, prevents sleep-duration snowball.
-
         last_x_t = x_t - (injected_delay * 1000.0)
-        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
-        print(f"batch {i} : total step {t_step_ms:.3f}ms ")
 
-        total_loss += loss_val
+        # Accumulate on-GPU — no per-batch .item() sync (same as train.py).
+        if total_loss_t is None:
+            total_loss_t = torch.zeros((), device=device)
+            correct_t    = torch.zeros((), device=device)
+        total_loss_t += loss_t
         _, predicted = outputs.max(1)
-        total   += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
+        total       += targets.size(0)
+        correct_t   += predicted.eq(targets).sum()
 
         if i % config.log_interval == 0:
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
-                f"Loss {loss_val:.4f} | "
+                f"Loss {loss_t.item():.4f} | "
                 f"X_t {x_t:>7.1f} ms"
                 f"{sleep_tag}"
             )
 
-    return total_loss / n_batches, 100.0 * correct / total
+    # Single sync at epoch end.
+    avg_loss = (total_loss_t / n_batches).item()
+    accuracy = 100.0 * (correct_t.item() / total)
+    return avg_loss, accuracy
 
 
 # ──────────────────────────────────────────────────────────────────────────────
