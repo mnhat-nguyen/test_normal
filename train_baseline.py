@@ -86,13 +86,11 @@ def train_step(model, inputs, targets, optimizer, criterion,
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
-    t_backward_start = time.perf_counter()
-    print(f"batch {batch_idx} : x_t {x_t:.3f}ms ")
+
     # ── Backward + all_reduce + step happen AFTER the timer ──────────────────
     loss.backward()
     optimizer.step()
-    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
-    print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
+
     return loss.item(), outputs, x_t, injected_delay
 
 
@@ -101,7 +99,8 @@ def train_step(model, inputs, targets, optimizer, criterion,
 # ──────────────────────────────────────────────────────────────────────────────
 
 def train_epoch(model, loader, optimizer, criterion,
-                injector, device, epoch, config, logger, world_size=1):
+                injector, device, epoch, config, logger, world_size=1,
+                sleep_log=None):
     model.train()
     total_loss = correct = total = 0
     n_batches  = len(loader)
@@ -123,6 +122,11 @@ def train_epoch(model, loader, optimizer, criterion,
             last_x_t=last_x_t,
             world_size=world_size,
         )
+        # Record this batch's sleep (ms) so train.py can replay the EXACT
+        # same straggler pattern. Keyed "epoch:batch".
+        if sleep_log is not None:
+            sleep_log[f"{epoch}:{i}"] = injector.last_sleep_ms if injector else 0.0
+
         # Strip injected sleep so the injector's feedback stays clean —
         # identical to train.py, prevents sleep-duration snowball.
         last_x_t = x_t - (injected_delay * 1000.0)
@@ -230,6 +234,10 @@ def main() -> None:
     metrics            = []
     cumulative_train_s = 0.0
 
+    # Records this run's exact sleep pattern (ms per "epoch:batch") so the
+    # algorithm run (train.py) can REPLAY identical stragglers → fair compare.
+    sleep_log = {}
+
     # ── Training loop ─────────────────────────────────────────────────────────
     for epoch in range(config.epochs):
         if world_size > 1:
@@ -240,6 +248,7 @@ def main() -> None:
             model, train_loader, optimizer, criterion,
             injector, device, epoch, config, logger,
             world_size=world_size,
+            sleep_log=sleep_log,
         )
         cumulative_train_s += time.perf_counter() - epoch_t0
 
@@ -267,6 +276,11 @@ def main() -> None:
             results_path = os.path.join(config.results_dir, 'baseline_metrics.json')
             with open(results_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
+
+            # Save the recorded sleep pattern for train.py to replay.
+            sleep_path = os.path.join(config.results_dir, 'sleep_pattern.json')
+            with open(sleep_path, 'w') as f:
+                json.dump(sleep_log, f, indent=2)
 
             model_state = model.module.state_dict() if world_size > 1 else model.state_dict()
             save_checkpoint(

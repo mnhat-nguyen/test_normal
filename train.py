@@ -37,7 +37,7 @@ from models          import get_model
 from data            import get_dataloaders
 from straggler       import StraglerDetector, GSCM
 from straggler.gscm  import GSCM_SCALE
-from sleep_injector  import SleepInjector
+from sleep_injector  import SleepInjector, ReplaySleepInjector
 from utils           import get_logger
 
 
@@ -142,14 +142,13 @@ def train_step(
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-    torch.cuda.synchronize()
+
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
     if amp_active:
         print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
-    else:
-        print(f"amp off batch {batch_idx} : x_t {x_t:.3f}ms ")
+
     t_backward_start = time.perf_counter()
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     # Identical for AMP and Normal now: scale loss by the fixed GSCM scale,
@@ -354,13 +353,28 @@ def main(config: TrainConfig = None) -> None:
     gscm = GSCM(device)
 
     # ── Sleep injector (straggler simulation) ─────────────────────────────────
-    injector = SleepInjector(
-        prob_on            = config.sleep_prob_on,
-        prob_off           = config.sleep_prob_off,
-        check_interval     = config.sleep_check_interval,
-        duration_ratio     = config.sleep_duration_ratio,
-        seed               = config.sleep_seed,
-    ) if config.inject_sleep else None
+    # Prefer REPLAY: if baseline already recorded its sleep pattern, replay
+    # the EXACT same stragglers here so the comparison is perfectly fair.
+    # Otherwise fall back to generating a fresh pattern with the live injector.
+    injector = None
+    if config.inject_sleep:
+        sleep_path = os.path.join(config.results_dir, 'sleep_pattern.json')
+        if os.path.isfile(sleep_path):
+            with open(sleep_path) as f:
+                pattern = json.load(f)
+            injector = ReplaySleepInjector(pattern)
+            logger.info(f"Replaying baseline sleep pattern from {sleep_path} "
+                        f"({len(pattern)} recorded batches)")
+        else:
+            injector = SleepInjector(
+                prob_on            = config.sleep_prob_on,
+                prob_off           = config.sleep_prob_off,
+                check_interval     = config.sleep_check_interval,
+                duration_ratio     = config.sleep_duration_ratio,
+                seed               = config.sleep_seed,
+            )
+            logger.info("No sleep_pattern.json found — generating a fresh "
+                        "pattern with the live injector.")
 
     # ── Optional resume ───────────────────────────────────────────────────────
     start_epoch = 0
@@ -379,6 +393,11 @@ def main(config: TrainConfig = None) -> None:
     for epoch in range(start_epoch, config.epochs):
         if world_size > 1:
             train_loader.sampler.set_epoch(epoch)
+
+        # Keep the replay injector's epoch in sync so its (epoch:batch)
+        # lookup matches baseline's recording. No-op for the live injector.
+        if isinstance(injector, ReplaySleepInjector):
+            injector.set_epoch(epoch)
 
         epoch_t0 = time.perf_counter()
         train_loss, train_acc = train_epoch(
