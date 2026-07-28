@@ -142,13 +142,14 @@ def train_step(
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-
+    torch.cuda.synchronize()
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
 #check this
     if amp_active:
         print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
-
+    else:
+        print(f"amp off batch {batch_idx} : x_t {x_t:.3f}ms ")
     t_backward_start = time.perf_counter()
     # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
     # Identical for AMP and Normal now: scale loss by the fixed GSCM scale,
@@ -393,7 +394,7 @@ def main(config: TrainConfig = None) -> None:
     for epoch in range(start_epoch, config.epochs):
         if world_size > 1:
             train_loader.sampler.set_epoch(epoch)
-
+            
         # Keep the replay injector's epoch in sync so its (epoch:batch)
         # lookup matches baseline's recording. No-op for the live injector.
         if isinstance(injector, ReplaySleepInjector):
