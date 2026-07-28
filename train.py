@@ -118,23 +118,65 @@ def train_step(
     x_t             : float         (forward + injected sleep, ms; excl. backward/all_reduce)
     injected_delay  : float         (seconds slept this step, 0.0 if none)
     """
-    optimizer.zero_grad()
+def train_step(
+    model,
+    inputs:       torch.Tensor,
+    targets:      torch.Tensor,
+    optimizer:    torch.optim.Optimizer,
+    criterion:    nn.Module,
+    gscm:         GSCM,
+    amp_active:   bool,
+    device:       torch.device,
+    injector=None,             # SleepInjector | None
+    batch_idx:    int   = 0,
+    last_x_t:     float = 0.0, # CLEAN (compute-only) x_t from previous batch
+    world_size:   int   = 1,
+    do_sync:      bool   = True,   # True on the LAST micro-batch of an accum group
+    do_step:      bool   = True,   # True → run optimizer.step()+zero_grad() this call
+    accum_steps:  int    = 1,      # gradient-accumulation group size (N)
+):
+    """
+    One micro-batch of gradient accumulation.
 
-    # ── GSCM: agree on gradient scale BEFORE the timed section ───────────────
+    Gradient accumulation
+    ---------------------
+    To cut the ~1200ms/batch network all_reduce cost, we accumulate gradients
+    over `accum_steps` (N) micro-batches locally, then fire ONE all_reduce for
+    the whole group and take ONE optimizer step. This reduces all_reduce
+    frequency from every batch to every N batches → ~N× less communication.
+
+      - do_sync=False (micro-batches 1..N-1): wrap backward in model.no_sync()
+        so DDP does NOT fire all_reduce — gradients just accumulate locally.
+      - do_sync=True  (micro-batch N):        normal backward → all_reduce fires
+        once for all N accumulated micro-batches.
+      - do_step=True only on micro-batch N:    optimizer.step() + zero_grad().
+
+    The loss is divided by accum_steps so the accumulated gradient equals the
+    average over the group (matching a single larger batch), not the sum.
+
+    X_t (forward + sleep) is measured every micro-batch as before. Backward's
+    all_reduce only actually transfers on the do_sync=True call.
+
+    Returns
+    -------
+    loss (detached tensor), outputs, x_t, injected_delay
+    """
+    # Gradients are NOT zeroed here — they accumulate across the N micro-batches
+    # of the group. zero_grad() runs after optimizer.step() (below) so the NEXT
+    # group starts clean; the first group is cleaned by the caller before the loop.
     global_scale = gscm.sync_scale(amp_active, None)
 
-    # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
+    # ── Start timer (COMPUTE only) ────────────────────────────────────────────
     t_start = time.perf_counter()
 
-    # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
+    # ── Sleep injection — INSIDE the timer ───────────────────────────────────
     injected_delay = 0.0
     if injector is not None:
         t_sleep_start  = time.perf_counter()
-        injector.maybe_sleep(batch_idx, last_x_t)   # last_x_t is clean, no snowball
-        injected_delay = time.perf_counter() - t_sleep_start   # seconds
+        injector.maybe_sleep(batch_idx, last_x_t)
+        injected_delay = time.perf_counter() - t_sleep_start
 
     # ── Forward ───────────────────────────────────────────────────────────────
-    # The ONLY difference between AMP and Normal is autocast (FP16 forward).
     if amp_active:
         with autocast('cuda'):
             outputs = model(inputs)
@@ -142,42 +184,47 @@ def train_step(
     else:
         outputs = model(inputs)
         loss    = criterion(outputs, targets)
-    
-    # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
-    x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
+
+    # ── Stop timer BEFORE backward ───────────────────────────────────────────
+    x_t = (time.perf_counter() - t_start) * 1000.0
 #check this
     if amp_active:
         print(f"amp on batch {batch_idx} : x_t {x_t:.3f}ms ")
-    else:
-        print(f"amp off batch {batch_idx} : x_t {x_t:.3f}ms ")
+
     t_backward_start = time.perf_counter()
-    # ── Backward + all_reduce happen AFTER the timer ─────────────────────────
-    # Identical for AMP and Normal now: scale loss by the fixed GSCM scale,
-    # then backward. (autocast context has already exited; backward runs in
-    # FP32 on the FP32 master gradients regardless of forward precision.)
-    scaled_loss = GSCM.scale_loss(loss, global_scale)
-    scaled_loss.backward()
-    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
+    # ── Backward ─────────────────────────────────────────────────────────────
+    # Scale loss by GSCM constant AND divide by accum_steps so the accumulated
+    # gradient is the AVERAGE over the group (equivalent to one larger batch).
+    scaled_loss = GSCM.scale_loss(loss, global_scale) / accum_steps
 
-    t_scale_start = time.perf_counter()
-    # ── Unscale (GSCM, fixed constant — no scaler, no inf/nan sync) ──────────
-    GSCM.unscale_gradients(model, global_scale)
-    scaler_update_ms = (time.perf_counter() - t_scale_start) * 1000.0   # unscale
+    if world_size > 1 and not do_sync:
+        # Suppress DDP all_reduce for non-final micro-batches: accumulate
+        # gradients locally with no network communication.
+        with model.no_sync():
+            scaled_loss.backward()
+    else:
+        # Final micro-batch of the group (or single-GPU): normal backward,
+        # DDP fires all_reduce once for all accumulated gradients.
+        scaled_loss.backward()
+    allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0
 
-    t_optimizer_start = time.perf_counter()
-    # ── Optimizer step (plain — no GradScaler, so no forced CPU-GPU sync) ────
-    optimizer.step()
-    optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0   # optimizer step
-    t_loss = time.perf_counter()
-    loss = loss.detach()
-    t_loss_ms = (time.perf_counter() - t_loss) * 1000.0
-    print(f"batch {batch_idx} : loss detach {t_loss_ms:.3f}ms ")
-    print(f"batch {batch_idx} :backward + all_reduce {allreduce_ms:.3f}ms  |  unscale {scaler_update_ms:.3f}ms  |  optimizer step {optimizer_ms:.3f}ms ")
-    # Return the loss TENSOR (not .item()) so the caller can accumulate it
-    # on-GPU. Calling .item() here forces a CPU-GPU sync that blocks on the
-    # in-flight async all_reduce (~1200ms on 1Gbps); deferring it to epoch
-    # end avoids that sync on every batch.
-    return loss, outputs, x_t, injected_delay
+    unscale_ms = 0.0
+    optimizer_ms = 0.0
+    if do_step:
+        t_scale_start = time.perf_counter()
+        # Unscale accumulated gradients by the fixed GSCM constant.
+        GSCM.unscale_gradients(model, global_scale)
+        unscale_ms = (time.perf_counter() - t_scale_start) * 1000.0
+
+        t_optimizer_start = time.perf_counter()
+        optimizer.step()
+        optimizer.zero_grad()          # reset for the next accumulation group
+        optimizer_ms = (time.perf_counter() - t_optimizer_start) * 1000.0
+
+    print(f"batch {batch_idx} :backward+all_reduce {allreduce_ms:.3f}ms  |  "
+          f"unscale {unscale_ms:.3f}ms  |  optimizer {optimizer_ms:.3f}ms  |  "
+          f"sync={do_sync} step={do_step} ")
+    return loss.detach(), outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -202,13 +249,16 @@ def train_epoch(
     n_batches  = len(loader)
     last_x_t   = 0.0
 
-    # Accumulate on-GPU to avoid per-batch CPU-GPU syncs. Calling .item() /
-    # .sum().item() every batch forces a sync that blocks on the in-flight
-    # async all_reduce (~1200ms on 1Gbps). We keep running totals as GPU
-    # tensors and only move them to CPU at epoch end (and at log points).
+    # Gradient-accumulation group size (N). all_reduce + optimizer step fire
+    # once per N micro-batches → ~N× less network communication.
+    accum_steps = getattr(config, 'accum_steps', 8)
+
     total_loss_t = torch.zeros((), device=device)
     correct_t    = torch.zeros((), device=device)
     total        = 0
+
+    # Start the first accumulation group with clean gradients.
+    optimizer.zero_grad()
 
     for i, (inputs, targets) in enumerate(loader):
         inputs  = inputs.to(device,  non_blocking=True)
@@ -220,7 +270,12 @@ def train_epoch(
         # injector + detector update so neither is contaminated by the spike.
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
-        t_step_start = time.perf_counter()
+
+        # This micro-batch is the LAST of its accumulation group if it's every
+        # Nth batch, or the very last batch of the epoch. Only then do we sync
+        # (all_reduce) and take an optimizer step.
+        is_group_end = ((i + 1) % accum_steps == 0) or (i == n_batches - 1)
+
         loss_t, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
@@ -229,10 +284,12 @@ def train_epoch(
             batch_idx=i,
             last_x_t=last_x_t,
             world_size=world_size,
+            do_sync=is_group_end,     # all_reduce only on the group's last micro-batch
+            do_step=is_group_end,     # optimizer.step()+zero_grad() only at group end
+            accum_steps=accum_steps,
         )
         last_x_t = x_t
-        t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
-        print(f"batch {i} : total step time {t_step_ms:.3f}ms ")
+
         is_boundary = (i == 0) or (i == n_batches - 1)
         if not is_boundary and not is_cold_start:
             detector.update(x_t)   # full x_t, sleep included
