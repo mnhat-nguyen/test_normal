@@ -84,7 +84,7 @@ def train_step(model, inputs, targets, optimizer, criterion,
     loss    = criterion(outputs, targets)
 
     # ── Stop timer BEFORE backward — X_t excludes backward + all_reduce ──────
-    torch.cuda.synchronize()
+    # torch.cuda.synchronize()
     x_t = (time.perf_counter() - t_start) * 1000.0   # ms — forward + sleep only
     t_backward_start = time.perf_counter()
     print(f"batch {batch_idx} : x_t {x_t:.3f}ms ")

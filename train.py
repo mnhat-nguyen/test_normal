@@ -124,7 +124,7 @@ def train_step(
     global_scale = gscm.sync_scale(amp_active, None)
 
     # ── Start timer (COMPUTE only — all_reduce excluded below) ───────────────
-    torch.cuda.synchronize()
+    # torch.cuda.synchronize()
     t_start = time.perf_counter()
 
     # ── Sleep injection — INSIDE the timer, fed with CLEAN history ───────────
@@ -210,6 +210,7 @@ def train_epoch(
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
         t_step_start = time.perf_counter()
+        #claude read and anylyze this: "big congested point is here, dont need world size, giving the reinit the same model and optimizer cost a lot of time, so we need to avoid that, and we can just use the same model and optimizer for each step"
         loss_val, outputs, x_t, injected_delay = train_step(
             model, inputs, targets,
             optimizer, criterion,
