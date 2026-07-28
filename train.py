@@ -239,7 +239,7 @@ def train_epoch(
             sleep_tag  = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
-                f"Loss {loss_val:.4f} | "
+                # f"Loss {loss_val:.4f} | "
                 f"AMP {'ON ' if amp_active else 'OFF'} | "
                 f"X_t {x_t:>7.1f} ms | "
                 f"Z {detector.Z or 0.0:>7.1f} | "
