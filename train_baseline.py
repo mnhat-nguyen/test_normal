@@ -148,7 +148,7 @@ def train_epoch(model, loader, optimizer, criterion,
             sleep_tag = ' [SLEEP]' if (injector and injector.is_sleeping) else ''
             logger.info(
                 f"Epoch {epoch:>3d} | Batch {i:>4d}/{n_batches} | "
-                f"Loss {loss_val:.4f} | "
+                # f"Loss {loss_val:.4f} | "
                 f"X_t {x_t:>7.1f} ms"
                 f"{sleep_tag}"
             )
