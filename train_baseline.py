@@ -94,7 +94,7 @@ def train_step(model, inputs, targets, optimizer, criterion,
     optimizer.step()
     allreduce_ms = (time.perf_counter() - t_backward_start) * 1000.0   # backward + all_reduce
     print(f" batch {batch_idx} : backward + all_reduce {allreduce_ms:.3f}ms ")
-    return loss.item(), outputs, x_t, injected_delay
+    return loss, outputs, x_t, injected_delay
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ def train_epoch(model, loader, optimizer, criterion,
         is_cold_start = (epoch == 0 and i == 0)
         step_injector = None if is_cold_start else injector
 
-        loss_val, outputs, x_t, injected_delay = train_step(
+        loss, outputs, x_t, injected_delay = train_step(
             model, inputs, targets, optimizer, criterion,
             injector=step_injector,
             batch_idx=i,
@@ -139,7 +139,7 @@ def train_epoch(model, loader, optimizer, criterion,
         t_step_ms = (time.perf_counter() - t_step_start) * 1000.0
         print(f"batch {i} : total step {t_step_ms:.3f}ms ")
 
-        total_loss += loss_val
+        # total_loss += loss_val
         _, predicted = outputs.max(1)
         total   += targets.size(0)
         correct += predicted.eq(targets).sum().item()
@@ -153,7 +153,7 @@ def train_epoch(model, loader, optimizer, criterion,
                 f"{sleep_tag}"
             )
 
-    return total_loss / n_batches, 100.0 * correct / total
+    return loss.item(), 100.0 * correct / total
 
 
 # ──────────────────────────────────────────────────────────────────────────────
