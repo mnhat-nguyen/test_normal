@@ -248,9 +248,9 @@ def train_epoch(
                 f"{sleep_tag}"
             )
     
-    avg_loss = loss.item() 
+    avg_loss = loss.item() / n_batches
     t_loss_ms = (time.perf_counter() - t_loss_start) * 1000.0
-    print(f"epoch {epoch} : computation {t_loss_ms:.3f}ms ")
+    print(f"epoch {epoch} : loss computation {t_loss_ms:.3f}ms ")
     accuracy = 100.0 * correct / total
     return avg_loss, accuracy
 
